@@ -134,3 +134,21 @@ Los alimentos marcados **≈ Aproximado – revisar etiqueta** o **≈ Parcial**
 (o solo las kcal verificadas). Revisa la etiqueta y edita la ficha; cambia "Verificación" a ✓ cuando estén comprobados.
 Especialmente: **pan de molde 100% integral** (pan principal, 220 kcal/100 g provisional) y **contramuslo** (confirmar si los
 212 kcal son en crudo o cocinado).
+
+---
+
+## APK de Android (para instalar sin Chrome / pasar por WhatsApp)
+
+```bash
+npm run apk
+```
+
+Genera `APK/Dieta-Dani-Alba-<versión>.apk` (app nativa con Capacitor; todo va dentro del APK, funciona sin internet).
+Requisitos (ya instalados en este PC): JDK 17 en `C:\Users\Usuario\.jdks`, Android SDK.
+
+- **Instalar**: pasa el `.apk` al móvil, ábrelo y permite "Instalar apps de origen desconocido" cuando lo pida.
+- **Nueva versión**: sube `versionCode` (+1) y `versionName` en `android/app/build.gradle`, ejecuta `npm run apk` e instala
+  el nuevo APK encima: se conservan los datos.
+- **Firma — IMPORTANTE**: `android/app/dieta-release.jks` + `android/keystore.properties` (no se suben a git).
+  Guarda una copia: sin ellos no se pueden instalar actualizaciones encima (habría que desinstalar y se perderían los datos).
+- Los datos del APK y los de la versión web instalada desde Chrome están separados.

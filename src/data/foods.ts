@@ -1,0 +1,561 @@
+import type { Food } from '../types';
+
+/**
+ * Base inicial de alimentos.
+ * - verificacion 'verificado': valores aportados por el usuario / etiqueta.
+ * - 'parcial': kcal (y a veces proteína) de etiqueta; resto de macros estimados.
+ * - 'aproximado': valores estándar de referencia, REVISAR ETIQUETA.
+ * Las raciones (porcionMinima/Maxima/Habitual/incremento) se expresan en el estado de consumo:
+ * cocinado si el alimento tiene conversión; unidades si unidadBase = 'unidad'.
+ * Las especias (ajo, cebolla en polvo, pimentón, pimienta, curry, orégano, chile...) NO se contabilizan.
+ */
+
+type FoodSeed = Omit<Food, 'tags' | 'bloques' | 'unidadBase' | 'estadoNutricionalBase' | 'incremento'> &
+  Partial<Pick<Food, 'tags' | 'bloques' | 'unidadBase' | 'estadoNutricionalBase' | 'incremento'>>;
+
+const food = (f: FoodSeed): Food => ({
+  unidadBase: 'g',
+  estadoNutricionalBase: 'listo_para_consumir',
+  incremento: 5,
+  tags: [],
+  bloques: ['A', 'B', 'C'],
+  ...f,
+});
+
+const PARCIAL = 'Kcal de etiqueta; resto de macros estimados. Revisa la etiqueta.';
+const APROX = 'Valor aproximado – revisar etiqueta';
+
+export const SEED_FOODS: Food[] = [
+  // ───────────── PROTEÍNAS ─────────────
+  food({
+    id: 'pollo_pechuga', nombre: 'Pechuga de pollo', categoria: 'proteina',
+    kcalPor100: 110, proteinaPor100: 23, carbohidratosPor100: 0, grasasPor100: 1.5, salPor100: 0.15,
+    estadoNutricionalBase: 'crudo', conversionId: 'pollo_pechuga',
+    porcionMinima: 60, porcionMaxima: 220, porcionHabitual: 150,
+    limitesPerfil: { alba: { habitual: 100, max: 160 } },
+    bloques: ['A', 'B', 'C'], tags: ['salado'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'contramuslo', nombre: 'Contramuslo de pollo sin piel', categoria: 'proteina',
+    kcalPor100: 212, proteinaPor100: 18, carbohidratosPor100: 0, grasasPor100: 15.5,
+    estadoNutricionalBase: 'crudo', conversionId: 'contramuslo',
+    porcionMinima: 60, porcionMaxima: 200, porcionHabitual: 130,
+    limitesPerfil: { alba: { habitual: 90 } },
+    bloques: ['B', 'C'], tags: ['salado'], verificacion: 'parcial',
+    notaVerificacion: '212 kcal aportadas por el usuario. Comprueba si la etiqueta es en crudo o cocinado y ajusta el estado.',
+  }),
+  food({
+    id: 'carne_picada', nombre: 'Carne picada de vacuno (≈10% grasa)', categoria: 'proteina',
+    kcalPor100: 170, proteinaPor100: 20, carbohidratosPor100: 0, grasasPor100: 10, salPor100: 0.2,
+    estadoNutricionalBase: 'crudo', conversionId: 'carne_picada',
+    porcionMinima: 60, porcionMaxima: 200, porcionHabitual: 130,
+    limitesPerfil: { alba: { habitual: 90 } },
+    bloques: ['B', 'C'], tags: ['salado'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'albondigas', nombre: 'Albóndigas pollo/cerdo', marca: 'Hacendado', categoria: 'proteina',
+    kcalPor100: 201, proteinaPor100: 23.6, carbohidratosPor100: 3, grasasPor100: 10.5, salPor100: 1.2,
+    estadoNutricionalBase: 'crudo', conversionId: 'albondigas',
+    porcionMinima: 60, porcionMaxima: 220, porcionHabitual: 150,
+    limitesPerfil: { alba: { habitual: 100 } },
+    bloques: ['B', 'C'], tags: ['salado'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'huevo', nombre: 'Huevo (talla M)', categoria: 'proteina',
+    kcalPor100: 143, proteinaPor100: 12.6, carbohidratosPor100: 0.7, grasasPor100: 9.5, salPor100: 0.35,
+    unidadBase: 'unidad', pesoUnidad: 55, nombreUnidad: 'huevo', estadoNutricionalBase: 'crudo',
+    porcionMinima: 1, porcionMaxima: 3, incremento: 1, porcionHabitual: 2,
+    limitesPerfil: { alba: { habitual: 1, max: 2 } },
+    bloques: ['A', 'C'], tags: ['salado'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'claras', nombre: 'Claras de huevo pasteurizadas', categoria: 'proteina',
+    kcalPor100: 48, proteinaPor100: 11, carbohidratosPor100: 0.7, grasasPor100: 0.2, salPor100: 0.4,
+    unidadBase: 'ml', porcionMinima: 50, porcionMaxima: 250, porcionHabitual: 150,
+    limitesPerfil: { alba: { habitual: 100 } },
+    bloques: ['A', 'C'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'pavo_lonchas', nombre: 'Pechuga de pavo en lonchas', categoria: 'proteina',
+    kcalPor100: 100, proteinaPor100: 19, carbohidratosPor100: 1.5, grasasPor100: 1.8, salPor100: 1.8,
+    porcionMinima: 30, porcionMaxima: 120, incremento: 10, porcionHabitual: 60,
+    limitesPerfil: { alba: { habitual: 50 } },
+    bloques: ['A', 'C'], tags: ['salado'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'atun', nombre: 'Atún al natural (escurrido)', categoria: 'proteina',
+    kcalPor100: 105, proteinaPor100: 24, carbohidratosPor100: 0, grasasPor100: 1, salPor100: 0.9,
+    porcionMinima: 50, porcionMaxima: 160, porcionHabitual: 110,
+    limitesPerfil: { alba: { habitual: 80 } },
+    bloques: ['A', 'B', 'C'], tags: ['pescado', 'salado'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'melva', nombre: 'Melva en aceite (escurrida)', categoria: 'proteina',
+    kcalPor100: 200, proteinaPor100: 24, carbohidratosPor100: 0, grasasPor100: 11.5, salPor100: 1,
+    porcionMinima: 40, porcionMaxima: 120, porcionHabitual: 80,
+    limitesPerfil: { alba: { habitual: 60 } },
+    bloques: ['A', 'B', 'C'], tags: ['pescado', 'salado'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'chili', nombre: 'Chili con carne', categoria: 'proteina',
+    kcalPor100: 114, proteinaPor100: 8.5, carbohidratosPor100: 9.5, grasasPor100: 4.8, salPor100: 1,
+    porcionMinima: 120, porcionMaxima: 300, incremento: 10, porcionHabitual: 250,
+    limitesPerfil: { alba: { habitual: 170 } },
+    bloques: ['B', 'C'], tags: ['picante', 'salado'], verificacion: 'parcial',
+    notaVerificacion: PARCIAL + ' Formato habitual 420 g: Dani 250 g, Alba 170 g.',
+  }),
+  food({
+    id: 'carrilladas', nombre: 'Carrilladas al vino', categoria: 'proteina',
+    kcalPor100: 123, proteinaPor100: 14, carbohidratosPor100: 1, grasasPor100: 7,
+    porcionMinima: 80, porcionMaxima: 250, porcionHabitual: 160,
+    limitesPerfil: { alba: { habitual: 110 } },
+    bloques: ['B', 'C'], tags: ['salado'], verificacion: 'verificado',
+  }),
+  food({
+    id: 'hamburguesa', nombre: 'Hamburguesa (comprada)', categoria: 'proteina',
+    kcalPor100: 250, proteinaPor100: 15, carbohidratosPor100: 4, grasasPor100: 19, salPor100: 1.5,
+    estadoNutricionalBase: 'crudo', pesoUnidad: 180, nombreUnidad: 'hamburguesa',
+    porcionMinima: 90, porcionMaxima: 180, incremento: 45, porcionHabitual: 180,
+    limitesPerfil: { alba: { habitual: 90, max: 135 } },
+    bloques: ['B', 'C'], tags: ['salado'], verificacion: 'parcial',
+    notaVerificacion: '250 kcal/100 g y unidad ≈180 g aportados por el usuario; macros estimados.',
+  }),
+
+  // ───────────── HIDRATOS ─────────────
+  food({
+    id: 'arroz', nombre: 'Arroz blanco', categoria: 'hidrato',
+    kcalPor100: 350, proteinaPor100: 7, carbohidratosPor100: 77, grasasPor100: 0.6, fibraPor100: 1.4,
+    estadoNutricionalBase: 'crudo', conversionId: 'arroz',
+    porcionMinima: 50, porcionMaxima: 250, porcionHabitual: 175,
+    limitesPerfil: { alba: { habitual: 120 } },
+    bloques: ['B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX + ' (valores en seco)',
+  }),
+  food({
+    id: 'pasta', nombre: 'Pasta de trigo', categoria: 'hidrato',
+    kcalPor100: 357, proteinaPor100: 12.5, carbohidratosPor100: 71, grasasPor100: 1.5, fibraPor100: 3,
+    estadoNutricionalBase: 'crudo', conversionId: 'pasta',
+    porcionMinima: 50, porcionMaxima: 230, porcionHabitual: 150,
+    limitesPerfil: { alba: { habitual: 105 } },
+    bloques: ['B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX + ' (valores en seco)',
+  }),
+  food({
+    id: 'pasta_legumbres', nombre: 'Pasta de legumbres', categoria: 'hidrato',
+    kcalPor100: 340, proteinaPor100: 24, carbohidratosPor100: 50, grasasPor100: 2, fibraPor100: 7,
+    estadoNutricionalBase: 'crudo', conversionId: 'pasta_legumbres',
+    porcionMinima: 50, porcionMaxima: 220, porcionHabitual: 140,
+    limitesPerfil: { alba: { habitual: 95 } },
+    bloques: ['B', 'C'], tags: ['legumbre'], verificacion: 'aproximado', notaVerificacion: APROX + ' (valores en seco)',
+  }),
+  food({
+    id: 'cuscus', nombre: 'Cuscús', categoria: 'hidrato',
+    kcalPor100: 360, proteinaPor100: 12.5, carbohidratosPor100: 72, grasasPor100: 1.6, fibraPor100: 3,
+    estadoNutricionalBase: 'crudo', conversionId: 'cuscus',
+    porcionMinima: 50, porcionMaxima: 230, porcionHabitual: 150,
+    limitesPerfil: { alba: { habitual: 100 } },
+    bloques: ['B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX + ' (valores en seco)',
+  }),
+  food({
+    id: 'papa_fresca', nombre: 'Papa fresca', categoria: 'hidrato',
+    kcalPor100: 77, proteinaPor100: 2, carbohidratosPor100: 17, grasasPor100: 0.1, fibraPor100: 2.2,
+    estadoNutricionalBase: 'crudo', conversionId: 'papa_fresca',
+    porcionMinima: 80, porcionMaxima: 350, porcionHabitual: 235,
+    limitesPerfil: { alba: { habitual: 160 } },
+    bloques: ['B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX + ' (valores en crudo)',
+  }),
+  food({
+    id: 'papa_bote', nombre: 'Papa cocida de bote (escurrida)', marca: 'Hacendado', categoria: 'hidrato',
+    kcalPor100: 53, proteinaPor100: 1.6, carbohidratosPor100: 10.5, grasasPor100: 0.2, fibraPor100: 1.5,
+    porcionMinima: 100, porcionMaxima: 500, porcionHabitual: 430,
+    limitesPerfil: { alba: { habitual: 300 } },
+    bloques: ['B', 'C'], verificacion: 'parcial',
+    notaVerificacion: '53 kcal/100 g escurridos (ficha propia, no usar conversión de papa fresca). Macros estimados.',
+  }),
+  food({
+    id: 'gnocchi', nombre: 'Gnocchi rellenos de queso', categoria: 'hidrato',
+    kcalPor100: 144, proteinaPor100: 4.5, carbohidratosPor100: 22, grasasPor100: 3.8, salPor100: 1,
+    estadoNutricionalBase: 'crudo', conversionId: 'gnocchi',
+    porcionMinima: 80, porcionMaxima: 260, porcionHabitual: 170,
+    limitesPerfil: { alba: { habitual: 115 } },
+    bloques: ['B', 'C'], tags: ['lacteo'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'arroz_coliflor', nombre: 'Arroz / migas de coliflor', categoria: 'hidrato',
+    kcalPor100: 20, proteinaPor100: 1.9, carbohidratosPor100: 2, grasasPor100: 0.3, fibraPor100: 2,
+    porcionMinima: 150, porcionMaxima: 350, incremento: 25, porcionHabitual: 300,
+    limitesPerfil: { alba: { habitual: 225 } },
+    bloques: ['B', 'C'], tags: ['sustituto_ligero'], verificacion: 'parcial',
+    notaVerificacion: '20 kcal/100 g de referencia. No es equivalente calórico del arroz.',
+  }),
+  food({
+    id: 'garbanzos', nombre: 'Garbanzos cocidos de bote', categoria: 'hidrato',
+    kcalPor100: 90, proteinaPor100: 5.5, carbohidratosPor100: 9.5, grasasPor100: 2.1, fibraPor100: 5, salPor100: 0.6,
+    porcionMinima: 60, porcionMaxima: 220, porcionHabitual: 150,
+    limitesPerfil: { alba: { min: 60, max: 100, habitual: 80 } },
+    bloques: ['B', 'C'], tags: ['legumbre'], verificacion: 'parcial', notaVerificacion: 'Kcal, proteína e hidratos aportados; grasa estimada.',
+  }),
+  food({
+    id: 'pan_integral', nombre: 'Pan de molde 100% integral sin corteza', marca: 'Hacendado', categoria: 'hidrato',
+    kcalPor100: 220, proteinaPor100: 10, carbohidratosPor100: 38, grasasPor100: 3, fibraPor100: 6, salPor100: 1,
+    unidadBase: 'unidad', pesoUnidad: 28, nombreUnidad: 'rebanada',
+    porcionMinima: 1, porcionMaxima: 4, incremento: 1, porcionHabitual: 2,
+    bloques: ['A', 'B', 'C'], verificacion: 'aproximado',
+    notaVerificacion: 'PAN PRINCIPAL. ~220 kcal/100 g y rebanada ~28 g (~62 kcal) provisionales: verifica la etiqueta.',
+  }),
+  food({
+    id: 'pan_avena', nombre: 'Pan 35% avena', marca: 'Hacendado', categoria: 'hidrato',
+    kcalPor100: 265, proteinaPor100: 11, carbohidratosPor100: 40, grasasPor100: 5.5, fibraPor100: 6, salPor100: 1,
+    unidadBase: 'unidad', pesoUnidad: 38, nombreUnidad: 'rebanada',
+    porcionMinima: 1, porcionMaxima: 3, incremento: 1, porcionHabitual: 2,
+    bloques: ['A'], verificacion: 'parcial', notaVerificacion: PARCIAL + ' No es el pan principal.',
+  }),
+  food({
+    id: 'pan_sarraceno', nombre: 'Pan de trigo sarraceno', categoria: 'hidrato',
+    kcalPor100: 226, proteinaPor100: 7, carbohidratosPor100: 38, grasasPor100: 3.5, fibraPor100: 5,
+    unidadBase: 'unidad', pesoUnidad: 55, nombreUnidad: 'rebanada',
+    porcionMinima: 1, porcionMaxima: 2, incremento: 1, porcionHabitual: 1,
+    bloques: ['A'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'avena', nombre: 'Copos de avena', categoria: 'hidrato',
+    kcalPor100: 370, proteinaPor100: 13.5, carbohidratosPor100: 59, grasasPor100: 7, fibraPor100: 10,
+    porcionMinima: 20, porcionMaxima: 80, porcionHabitual: 40,
+    limitesPerfil: { alba: { habitual: 30 } },
+    bloques: ['A'], tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'harina_avena', nombre: 'Harina de avena Cookies & Cream', categoria: 'hidrato',
+    kcalPor100: 392, proteinaPor100: 13, carbohidratosPor100: 62, grasasPor100: 8, fibraPor100: 8,
+    porcionMinima: 25, porcionMaxima: 60, porcionHabitual: 40,
+    limitesPerfil: { alba: { habitual: 30 } },
+    bloques: ['A'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'tortilla_maiz', nombre: 'Tortillas de maíz', categoria: 'hidrato',
+    kcalPor100: 220, proteinaPor100: 5.5, carbohidratosPor100: 44, grasasPor100: 2.5, fibraPor100: 5, salPor100: 0.8,
+    unidadBase: 'unidad', pesoUnidad: 25, nombreUnidad: 'tortilla',
+    porcionMinima: 1, porcionMaxima: 4, incremento: 1, porcionHabitual: 3,
+    limitesPerfil: { alba: { habitual: 2 } },
+    bloques: ['A', 'B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX + ' (peso por unidad incluido)',
+  }),
+  food({
+    id: 'obleas_arroz', nombre: 'Obleas / tortitas de arroz', categoria: 'hidrato',
+    kcalPor100: 380, proteinaPor100: 8, carbohidratosPor100: 80, grasasPor100: 3, fibraPor100: 3,
+    unidadBase: 'unidad', pesoUnidad: 8, nombreUnidad: 'oblea',
+    porcionMinima: 1, porcionMaxima: 6, incremento: 1, porcionHabitual: 3,
+    limitesPerfil: { alba: { habitual: 2 } },
+    bloques: ['A', 'B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX + ' (peso por unidad incluido)',
+  }),
+
+  // ───────────── VERDURAS ─────────────
+  food({
+    id: 'ratatouille', nombre: 'Ratatouille congelado', categoria: 'verdura',
+    kcalPor100: 60, proteinaPor100: 1.3, carbohidratosPor100: 5.5, grasasPor100: 3.3, fibraPor100: 2,
+    estadoNutricionalBase: 'crudo', conversionId: 'ratatouille',
+    porcionMinima: 80, porcionMaxima: 300, porcionHabitual: 170,
+    limitesPerfil: { alba: { habitual: 130 } },
+    bloques: ['B', 'C'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'setas', nombre: 'Salteado de setas congeladas', categoria: 'verdura',
+    kcalPor100: 16, proteinaPor100: 2, carbohidratosPor100: 0.8, grasasPor100: 0.3, fibraPor100: 2,
+    estadoNutricionalBase: 'crudo', conversionId: 'setas',
+    porcionMinima: 50, porcionMaxima: 200, porcionHabitual: 100,
+    limitesPerfil: { alba: { habitual: 75 } },
+    bloques: ['A', 'B', 'C'], verificacion: 'parcial', notaVerificacion: '16 kcal/100 g antes de cocinar. Macros estimados.',
+  }),
+  food({
+    id: 'gazpacho', nombre: 'Gazpacho tradicional', marca: 'Hacendado', categoria: 'verdura',
+    kcalPor100: 40, proteinaPor100: 0.8, carbohidratosPor100: 3.5, grasasPor100: 2.5, salPor100: 0.6,
+    unidadBase: 'ml', porcionMinima: 100, porcionMaxima: 330, incremento: 10, porcionHabitual: 200,
+    limitesPerfil: { alba: { habitual: 150 } },
+    bloques: ['B', 'C'], tags: ['acompanante'], verificacion: 'parcial', notaVerificacion: '40 kcal/100 ml. Macros estimados.',
+  }),
+  food({
+    id: 'tomate', nombre: 'Tomate', categoria: 'verdura',
+    kcalPor100: 20, proteinaPor100: 0.9, carbohidratosPor100: 3.5, grasasPor100: 0.2, fibraPor100: 1.2,
+    porcionMinima: 50, porcionMaxima: 250, porcionHabitual: 100,
+    bloques: ['A', 'B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'cebolla', nombre: 'Cebolla', categoria: 'verdura',
+    kcalPor100: 40, proteinaPor100: 1.1, carbohidratosPor100: 9, grasasPor100: 0.1, fibraPor100: 1.7,
+    porcionMinima: 10, porcionMaxima: 100, porcionHabitual: 30,
+    limitesPerfil: { alba: { habitual: 20 } },
+    bloques: ['A', 'B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'pepino', nombre: 'Pepino', categoria: 'verdura',
+    kcalPor100: 13, proteinaPor100: 0.6, carbohidratosPor100: 2.2, grasasPor100: 0.1, fibraPor100: 0.7,
+    porcionMinima: 50, porcionMaxima: 250, porcionHabitual: 100,
+    bloques: ['B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'lechuga', nombre: 'Lechuga', categoria: 'verdura',
+    kcalPor100: 15, proteinaPor100: 1.4, carbohidratosPor100: 1.6, grasasPor100: 0.2, fibraPor100: 1.3,
+    porcionMinima: 50, porcionMaxima: 250, porcionHabitual: 100,
+    bloques: ['B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'pisto', nombre: 'Pisto ultracongelado', categoria: 'verdura',
+    kcalPor100: 64, proteinaPor100: 1.5, carbohidratosPor100: 6, grasasPor100: 3.7, fibraPor100: 2,
+    porcionMinima: 80, porcionMaxima: 250, porcionHabitual: 150,
+    limitesPerfil: { alba: { habitual: 120 } },
+    bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
+  }),
+  food({
+    id: 'wok_verduras', nombre: 'Wok de verduras asiático', categoria: 'verdura',
+    kcalPor100: 53, proteinaPor100: 1.8, carbohidratosPor100: 6, grasasPor100: 2.2, fibraPor100: 2.5,
+    porcionMinima: 80, porcionMaxima: 300, porcionHabitual: 170,
+    limitesPerfil: { alba: { habitual: 130 } },
+    bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
+  }),
+  food({
+    id: 'salteado_verduras', nombre: 'Salteado de verduras', categoria: 'verdura',
+    kcalPor100: 31, proteinaPor100: 1.6, carbohidratosPor100: 4, grasasPor100: 0.8, fibraPor100: 2.5,
+    porcionMinima: 80, porcionMaxima: 300, porcionHabitual: 180,
+    limitesPerfil: { alba: { habitual: 140 } },
+    bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
+  }),
+  food({
+    id: 'verduras_asadas', nombre: 'Verduras asadas', categoria: 'verdura',
+    kcalPor100: 46, proteinaPor100: 1.3, carbohidratosPor100: 5, grasasPor100: 2.2, fibraPor100: 2.5,
+    porcionMinima: 80, porcionMaxima: 300, porcionHabitual: 170,
+    limitesPerfil: { alba: { habitual: 130 } },
+    bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
+  }),
+  food({
+    id: 'aguacate', nombre: 'Aguacate', categoria: 'extra',
+    kcalPor100: 160, proteinaPor100: 2, carbohidratosPor100: 2, grasasPor100: 15, fibraPor100: 6.7,
+    porcionMinima: 20, porcionMaxima: 80, porcionHabitual: 50,
+    limitesPerfil: { alba: { habitual: 30 } },
+    bloques: ['A', 'B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+
+  // ───────────── SALSAS ─────────────
+  food({
+    id: 'salsa_tomate_albahaca', nombre: 'Salsa de tomate con albahaca', categoria: 'salsa',
+    kcalPor100: 34, proteinaPor100: 1.5, carbohidratosPor100: 5, grasasPor100: 0.8, salPor100: 0.9,
+    porcionMinima: 60, porcionMaxima: 200, porcionHabitual: 125,
+    limitesPerfil: { dani: { min: 100, max: 150 }, alba: { min: 60, max: 125, habitual: 100 } },
+    bloques: ['B', 'C'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'salsa_mexicana', nombre: 'Salsa mexicana', categoria: 'salsa',
+    kcalPor100: 38, proteinaPor100: 1.2, carbohidratosPor100: 6, grasasPor100: 0.9, salPor100: 1.2,
+    porcionMinima: 30, porcionMaxima: 60, porcionHabitual: 50,
+    limitesPerfil: { dani: { min: 40, max: 60, habitual: 50 }, alba: { min: 30, max: 40, habitual: 35 } },
+    bloques: ['A', 'B', 'C'], tags: ['picante'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'salsa_soja', nombre: 'Salsa de soja', categoria: 'salsa',
+    kcalPor100: 57, proteinaPor100: 8, carbohidratosPor100: 6, grasasPor100: 0, salPor100: 14.5,
+    unidadBase: 'ml', porcionMinima: 5, porcionMaxima: 10, porcionHabitual: 10,
+    limitesPerfil: { dani: { max: 10, habitual: 10 }, alba: { max: 5, habitual: 5 } },
+    bloques: ['B', 'C'], tags: ['sal_alta'], verificacion: 'parcial', notaVerificacion: '57 kcal/100 ml. Macros estimados.',
+    aviso: 'Sal elevada: Dani máx. ~10 ml, Alba ~5 ml.',
+  }),
+  food({
+    id: 'ketchup_zero', nombre: 'Ketchup / salsa tomate Zero', categoria: 'salsa',
+    kcalPor100: 83, proteinaPor100: 1.6, carbohidratosPor100: 18, grasasPor100: 0.3, salPor100: 1.8,
+    porcionMinima: 10, porcionMaxima: 40, porcionHabitual: 30,
+    limitesPerfil: { dani: { habitual: 30 }, alba: { habitual: 20, max: 30 } },
+    bloques: ['A', 'B', 'C'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'barbacoa_zero', nombre: 'Salsa barbacoa Zero', categoria: 'salsa',
+    kcalPor100: 88, proteinaPor100: 1, carbohidratosPor100: 19, grasasPor100: 0.5, salPor100: 2,
+    porcionMinima: 10, porcionMaxima: 40, porcionHabitual: 25,
+    limitesPerfil: { alba: { habitual: 20 } },
+    bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
+  }),
+  food({
+    id: 'mostaza', nombre: 'Mostaza', categoria: 'salsa',
+    kcalPor100: 75, proteinaPor100: 4.5, carbohidratosPor100: 4, grasasPor100: 4.5, salPor100: 3,
+    porcionMinima: 5, porcionMaxima: 20, porcionHabitual: 10,
+    bloques: ['A', 'B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
+  }),
+  food({
+    id: 'tomate_triturado', nombre: 'Tomate triturado', categoria: 'salsa',
+    kcalPor100: 25, proteinaPor100: 1.2, carbohidratosPor100: 4, grasasPor100: 0.3, fibraPor100: 1.2, salPor100: 0.3,
+    porcionMinima: 60, porcionMaxima: 200, porcionHabitual: 125,
+    limitesPerfil: { alba: { habitual: 100 } },
+    bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
+  }),
+  food({
+    id: 'salsa_casera_batido', nombre: 'Salsa casera (queso batido 0% + salsa mexicana)', categoria: 'salsa',
+    kcalPor100: 42.8, proteinaPor100: 5.3, carbohidratosPor100: 4.5, grasasPor100: 0.4, salPor100: 0.6,
+    porcionMinima: 40, porcionMaxima: 120, porcionHabitual: 80,
+    limitesPerfil: { alba: { habitual: 60 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo', 'picante'], verificacion: 'aproximado',
+    notaVerificacion: 'Calculada como 60% queso batido 0% + 40% salsa mexicana. Especias sin contar.',
+  }),
+
+  // ───────────── QUESOS ─────────────
+  food({
+    id: 'cottage', nombre: 'Queso cottage', marca: 'Hacendado', categoria: 'queso',
+    kcalPor100: 93, proteinaPor100: 13, carbohidratosPor100: 3, grasasPor100: 3, salPor100: 0.8,
+    porcionMinima: 40, porcionMaxima: 200, porcionHabitual: 80,
+    limitesPerfil: { alba: { habitual: 50 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo'], verificacion: 'parcial', notaVerificacion: 'Kcal y proteína de etiqueta; resto estimado.',
+  }),
+  food({
+    id: 'havarti_light', nombre: 'Havarti Light', marca: 'Hacendado', categoria: 'queso',
+    kcalPor100: 267, proteinaPor100: 27, carbohidratosPor100: 0.5, grasasPor100: 17.5, salPor100: 1.5,
+    porcionMinima: 15, porcionMaxima: 50, porcionHabitual: 25,
+    limitesPerfil: { alba: { habitual: 20 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo'], verificacion: 'parcial', notaVerificacion: 'Kcal y proteína de etiqueta; resto estimado.',
+  }),
+  food({
+    id: 'mozzarella_rallada', nombre: 'Mozzarella rallada', categoria: 'queso',
+    kcalPor100: 283, proteinaPor100: 21, carbohidratosPor100: 1.5, grasasPor100: 21.5, salPor100: 1.2,
+    porcionMinima: 15, porcionMaxima: 60, porcionHabitual: 30,
+    limitesPerfil: { alba: { habitual: 20 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo'], verificacion: 'parcial', notaVerificacion: 'Kcal y proteína de etiqueta; resto estimado.',
+  }),
+  food({
+    id: 'mozzarella_bufala', nombre: 'Mozzarella de búfala', categoria: 'queso',
+    kcalPor100: 247, proteinaPor100: 17, carbohidratosPor100: 0.7, grasasPor100: 19.5, salPor100: 0.5,
+    porcionMinima: 30, porcionMaxima: 125, porcionHabitual: 60,
+    limitesPerfil: { alba: { habitual: 45 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+
+  // ───────────── LÁCTEOS Y BEBIDAS ─────────────
+  food({
+    id: 'queso_batido', nombre: 'Queso batido 0%', categoria: 'lacteo',
+    kcalPor100: 46, proteinaPor100: 8, carbohidratosPor100: 3.5, grasasPor100: 0.1,
+    porcionMinima: 40, porcionMaxima: 250, porcionHabitual: 100,
+    limitesPerfil: { alba: { habitual: 80 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'yogur_0', nombre: 'Yogur natural 0%', categoria: 'lacteo',
+    kcalPor100: 40, proteinaPor100: 4.5, carbohidratosPor100: 5.5, grasasPor100: 0.1,
+    porcionMinima: 40, porcionMaxima: 250, porcionHabitual: 125,
+    limitesPerfil: { alba: { habitual: 125, min: 40, max: 150 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'yogur_griego_0', nombre: 'Yogur griego 0%', categoria: 'lacteo',
+    kcalPor100: 60, proteinaPor100: 10, carbohidratosPor100: 4, grasasPor100: 0.2,
+    porcionMinima: 60, porcionMaxima: 250, porcionHabitual: 125,
+    bloques: ['A', 'B', 'C'], tags: ['lacteo'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'leche_fermentada_proteica', nombre: 'Leche fermentada proteica fresa-plátano', categoria: 'lacteo',
+    kcalPor100: 48, proteinaPor100: 7, carbohidratosPor100: 4.8, grasasPor100: 0.2,
+    porcionMinima: 125, porcionMaxima: 250, incremento: 25, porcionHabitual: 250,
+    bloques: ['A', 'B', 'C'], tags: ['lacteo', 'dulce'], verificacion: 'parcial',
+    notaVerificacion: 'Kcal y proteína de etiqueta (250 g ≈ 121 kcal y 17,5 g proteína). Resto estimado.',
+  }),
+  food({
+    id: 'bebida_almendras', nombre: 'Bebida de almendras sin azúcar', categoria: 'lacteo',
+    kcalPor100: 13, proteinaPor100: 0.4, carbohidratosPor100: 0, grasasPor100: 1.1,
+    unidadBase: 'ml', porcionMinima: 100, porcionMaxima: 300, incremento: 25, porcionHabitual: 200,
+    bloques: ['A'], tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'leche_semi', nombre: 'Leche semidesnatada', categoria: 'lacteo',
+    kcalPor100: 46, proteinaPor100: 3.2, carbohidratosPor100: 4.7, grasasPor100: 1.6,
+    unidadBase: 'ml', porcionMinima: 100, porcionMaxima: 300, incremento: 25, porcionHabitual: 200,
+    bloques: ['A'], tags: ['lacteo', 'leche_vaca'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+
+  // ───────────── POSTRES / COMPLEMENTOS ─────────────
+  food({
+    id: 'yogur_liquido_frutos_silvestres', nombre: 'Yogur líquido frutos silvestres', categoria: 'postre',
+    kcalPor100: 33, proteinaPor100: 3.3, carbohidratosPor100: 4.5, grasasPor100: 0.2,
+    porcionMinima: 100, porcionMaxima: 250, incremento: 10, porcionHabitual: 200,
+    limitesPerfil: { dani: { min: 180, max: 240, habitual: 200 }, alba: { habitual: 150 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo', 'dulce'], verificacion: 'parcial', notaVerificacion: 'Kcal y proteína de etiqueta; resto estimado.',
+  }),
+  food({
+    id: 'proteina_chocolate', nombre: 'Proteína en polvo sabor chocolate', categoria: 'postre',
+    kcalPor100: 380, proteinaPor100: 75, carbohidratosPor100: 8, grasasPor100: 6,
+    porcionMinima: 5, porcionMaxima: 30, porcionHabitual: 10,
+    limitesPerfil: { alba: { min: 5, max: 10, habitual: 10 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo', 'dulce', 'solo_en_receta'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'chocolate_85', nombre: 'Chocolate 85%', categoria: 'extra',
+    kcalPor100: 580, proteinaPor100: 11, carbohidratosPor100: 15, grasasPor100: 50, fibraPor100: 12,
+    porcionMinima: 5, porcionMaxima: 20, porcionHabitual: 10,
+    bloques: ['A', 'B', 'C'], tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'nueces', nombre: 'Nueces', categoria: 'extra',
+    kcalPor100: 654, proteinaPor100: 15, carbohidratosPor100: 7, grasasPor100: 65, fibraPor100: 6.7,
+    porcionMinima: 5, porcionMaxima: 30, porcionHabitual: 15,
+    bloques: ['A'], tags: ['solo_si_se_incluye'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'aceite_oliva', nombre: 'Aceite de oliva', categoria: 'extra',
+    kcalPor100: 900, proteinaPor100: 0, carbohidratosPor100: 0, grasasPor100: 100,
+    porcionMinima: 5, porcionMaxima: 15, porcionHabitual: 5,
+    bloques: ['A', 'B', 'C'], tags: ['solo_si_se_incluye'], verificacion: 'verificado',
+    notaVerificacion: '9 kcal/g. Si se añade, SIEMPRE se suma.',
+  }),
+
+  // ───────────── FRUTAS ─────────────
+  food({
+    id: 'platano', nombre: 'Plátano', categoria: 'fruta',
+    kcalPor100: 89, proteinaPor100: 1.1, carbohidratosPor100: 20, grasasPor100: 0.3, fibraPor100: 2.6,
+    porcionMinima: 80, porcionMaxima: 140, porcionHabitual: 110,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'manzana', nombre: 'Manzana', categoria: 'fruta',
+    kcalPor100: 52, proteinaPor100: 0.3, carbohidratosPor100: 12, grasasPor100: 0.2, fibraPor100: 2.4,
+    porcionMinima: 120, porcionMaxima: 200, porcionHabitual: 165,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'naranja', nombre: 'Naranja', categoria: 'fruta',
+    kcalPor100: 47, proteinaPor100: 0.9, carbohidratosPor100: 10, grasasPor100: 0.1, fibraPor100: 2.4,
+    porcionMinima: 150, porcionMaxima: 220, porcionHabitual: 190,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'mandarina', nombre: 'Mandarina', categoria: 'fruta',
+    kcalPor100: 53, proteinaPor100: 0.8, carbohidratosPor100: 12, grasasPor100: 0.3, fibraPor100: 1.8,
+    porcionMinima: 120, porcionMaxima: 200, porcionHabitual: 165,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'uvas', nombre: 'Uvas', categoria: 'fruta',
+    kcalPor100: 69, proteinaPor100: 0.7, carbohidratosPor100: 17, grasasPor100: 0.2, fibraPor100: 0.9,
+    porcionMinima: 80, porcionMaxima: 150, porcionHabitual: 100,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'sandia', nombre: 'Sandía', categoria: 'fruta',
+    kcalPor100: 30, proteinaPor100: 0.6, carbohidratosPor100: 7, grasasPor100: 0.2, fibraPor100: 0.4,
+    porcionMinima: 200, porcionMaxima: 350, porcionHabitual: 275,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'frutos_rojos_cong', nombre: 'Frutos rojos congelados', categoria: 'fruta',
+    kcalPor100: 40, proteinaPor100: 0.8, carbohidratosPor100: 7.5, grasasPor100: 0.4, fibraPor100: 4,
+    porcionMinima: 80, porcionMaxima: 200, porcionHabitual: 150,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'arandanos_cong', nombre: 'Arándanos congelados', categoria: 'fruta',
+    kcalPor100: 57, proteinaPor100: 0.7, carbohidratosPor100: 13, grasasPor100: 0.3, fibraPor100: 2.4,
+    porcionMinima: 80, porcionMaxima: 160, porcionHabitual: 120,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'fresa_platano_cong', nombre: 'Fruta congelada fresa-plátano', categoria: 'fruta',
+    kcalPor100: 54, proteinaPor100: 0.9, carbohidratosPor100: 11.5, grasasPor100: 0.3, fibraPor100: 2,
+    porcionMinima: 100, porcionMaxima: 170, porcionHabitual: 140,
+    limitesPerfil: { alba: { habitual: 120 } },
+    tags: ['dulce'], verificacion: 'parcial', notaVerificacion: PARCIAL,
+  }),
+  food({
+    id: 'mix_tropical', nombre: 'Mix tropical congelado', categoria: 'fruta',
+    kcalPor100: 60, proteinaPor100: 0.7, carbohidratosPor100: 14, grasasPor100: 0.2, fibraPor100: 1.8,
+    porcionMinima: 80, porcionMaxima: 150, porcionHabitual: 100,
+    tags: ['dulce'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+];

@@ -179,6 +179,14 @@ export const SEED_FOODS: Food[] = [
     bloques: ['B', 'C'], tags: ['lacteo'], verificacion: 'parcial', notaVerificacion: PARCIAL,
   }),
   food({
+    id: 'gnocchi_patata', nombre: 'Gnocchi de patata (normales)', categoria: 'hidrato',
+    kcalPor100: 155, proteinaPor100: 4, carbohidratosPor100: 32, grasasPor100: 0.8, fibraPor100: 2, salPor100: 1,
+    estadoNutricionalBase: 'crudo', conversionId: 'gnocchi',
+    porcionMinima: 80, porcionMaxima: 260, porcionHabitual: 160,
+    limitesPerfil: { alba: { habitual: 110 } },
+    bloques: ['B', 'C'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
     id: 'arroz_coliflor', nombre: 'Arroz / migas de coliflor', categoria: 'hidrato',
     kcalPor100: 20, proteinaPor100: 1.9, carbohidratosPor100: 2, grasasPor100: 0.3, fibraPor100: 2,
     porcionMinima: 150, porcionMaxima: 350, incremento: 25, porcionHabitual: 300,
@@ -475,6 +483,19 @@ export const SEED_FOODS: Food[] = [
     porcionMinima: 5, porcionMaxima: 30, porcionHabitual: 10,
     limitesPerfil: { alba: { min: 5, max: 10, habitual: 10 } },
     bloques: ['A', 'B', 'C'], tags: ['lacteo', 'dulce', 'solo_en_receta'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'proteina_whey', nombre: 'Proteína whey (neutra / sabores)', categoria: 'postre',
+    kcalPor100: 380, proteinaPor100: 78, carbohidratosPor100: 6, grasasPor100: 5,
+    porcionMinima: 5, porcionMaxima: 35, porcionHabitual: 25,
+    limitesPerfil: { alba: { habitual: 15 } },
+    bloques: ['A', 'B', 'C'], tags: ['lacteo', 'solo_en_receta'], verificacion: 'aproximado', notaVerificacion: APROX,
+  }),
+  food({
+    id: 'proteina_vegetal', nombre: 'Proteína vegetal en polvo (guisante/arroz)', categoria: 'postre',
+    kcalPor100: 375, proteinaPor100: 75, carbohidratosPor100: 5, grasasPor100: 6.5, fibraPor100: 3, salPor100: 1.5,
+    porcionMinima: 5, porcionMaxima: 30, porcionHabitual: 20,
+    bloques: ['A', 'B', 'C'], tags: ['solo_en_receta'], verificacion: 'aproximado', notaVerificacion: APROX + ' Sin lácteos (opción de Alba).',
   }),
   food({
     id: 'chocolate_85', nombre: 'Chocolate 85%', categoria: 'extra',

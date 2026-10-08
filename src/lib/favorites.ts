@@ -1,12 +1,13 @@
 import type { Favorite, Meal } from '../types';
 
-/** Más usados primero; a igualdad, el usado más recientemente; luego los más nuevos. */
+/** Más usados primero; a igualdad, el usado más recientemente; luego los más nuevos; y por nombre (A1, A2… A10). */
 export function sortFavorites(favs: Favorite[]): Favorite[] {
   return [...favs].sort(
     (a, b) =>
       (b.usos ?? 0) - (a.usos ?? 0) ||
       (b.ultimoUso ?? '').localeCompare(a.ultimoUso ?? '') ||
-      (b.creado ?? '').localeCompare(a.creado ?? ''),
+      (b.creado ?? '').localeCompare(a.creado ?? '') ||
+      a.nombre.localeCompare(b.nombre, 'es', { numeric: true }),
   );
 }
 

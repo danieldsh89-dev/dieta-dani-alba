@@ -5,6 +5,7 @@ import { SEED_CONVERSIONS } from '../data/conversions';
 import { DEFAULT_SETTINGS, SEED_PROFILES, defaultTraining } from '../data/profiles';
 import type { Profile } from '../types';
 import { SEED_FAVORITES } from '../data/seedMeals';
+import { DIETA_MODULAR } from '../data/dietaModular';
 import { servingToBase, toConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap } from '../lib/nutrition';
 import { emptySync } from '../sync/docs';
@@ -14,7 +15,7 @@ export const DATA_VERSION = 1;
 export function buildSeedFavorites(): Favorite[] {
   const fm = toFoodMap(SEED_FOODS);
   const cm = toConversionMap(SEED_CONVERSIONS);
-  return SEED_FAVORITES.map((sf) => {
+  return [...SEED_FAVORITES, ...DIETA_MODULAR].map((sf) => {
     const meal: Meal = {
       id: sf.id,
       nombre: sf.nombre,
@@ -64,6 +65,16 @@ export function mergeWithSeed(saved: AppData): AppData {
     ...seed,
     ...saved,
     foods: [...saved.foods, ...seed.foods.filter((f) => !foodIds.has(f.id))],
+    // favoritos de la dieta modular (A1…C14): se añaden a instalaciones existentes, salvo los que el usuario borró
+    favorites: [
+      ...saved.favorites,
+      ...seed.favorites.filter(
+        (f) =>
+          f.id.startsWith('dm_') &&
+          !saved.favorites.some((x) => x.id === f.id) &&
+          !saved.sync?.tombstones?.[`fav:${f.id}`],
+      ),
+    ],
     conversions: [...saved.conversions, ...seed.conversions.filter((c) => !convIds.has(c.id))],
     settings: { ...seed.settings, ...saved.settings },
     shoppingChecked: saved.shoppingChecked ?? [],

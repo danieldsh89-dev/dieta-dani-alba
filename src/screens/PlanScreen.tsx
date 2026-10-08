@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Block } from '../types';
 import { BLOCKS, PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
-import { compensatedTargets, dayTotals, isFree, todayKey } from '../lib/day';
-import { targetsFor, shortName } from '../lib/mealGenerator';
+import { dayGoals, dayTotals, isFree, targetsForDay, todayKey } from '../lib/day';
+import { shortName } from '../lib/mealGenerator';
 import { formatNumber } from '../lib/conversions';
 import { round } from '../lib/nutrition';
 import {
@@ -145,7 +145,12 @@ function WeekView({
           >
             <div className="row between">
               <b style={{ textTransform: 'capitalize' }}>
-                {formatDay(fecha, { weekday: 'long', day: 'numeric' })} {fecha === today && <span className="badge ok">hoy</span>}
+                {formatDay(fecha, { weekday: 'long', day: 'numeric' })} {fecha === today && <span className="badge ok">hoy</span>}{' '}
+                {PROFILE_IDS.filter((p) => dayGoals(data.profiles[p], fecha, day).entreno).map((p) => (
+                  <span key={p} className={`badge ${p}`} title={`Entreno ${data.profiles[p].nombre}`}>
+                    🏋️ {data.profiles[p].nombre.charAt(0)}
+                  </span>
+                ))}
               </b>
               <div className="row">
                 {day && (
@@ -225,7 +230,7 @@ function SlotSheet({
   const day = getDay(fecha);
   const s = day?.bloques[bloque];
   const [mode, setMode] = useState<'menu' | 'fav' | 'free' | 'copy'>('menu');
-  const targets = targetsFor(bloque, data.profiles, compensatedTargets(day, bloque, data.profiles, fm));
+  const targets = targetsForDay(fecha, bloque, data.profiles, day, fm);
   const title = `${bloque} · ${formatDay(fecha, { weekday: 'long', day: 'numeric' })}`;
 
   if (mode === 'fav')

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { BlockTarget, Category, Meal, ProfileId } from '../types';
 import { useStore } from '../store/AppStore';
-import { adjustMeal, type GeneratedOption } from '../lib/mealGenerator';
+import { adjustMeal, signature, type GeneratedOption } from '../lib/mealGenerator';
 import { MealEditor } from './MealEditor';
 import { NameSheet } from './NameSheet';
 import { DateSheet } from './DateSheet';
@@ -28,12 +28,20 @@ export function OptionCard({
   useLabel?: string;
   onToast: (t: string) => void;
 }) {
-  const { genCtx, addFavorite, setDaySlot } = useStore();
+  const { data, genCtx, addFavorite, setDaySlot, rateMeal } = useStore();
   const [planning, setPlanning] = useState(false);
   const [subst, setSubst] = useState<Category | null>(null);
   const [saving, setSaving] = useState(false);
   const meal = option.meal;
 
+  const ids = meal.items.map((i) => i.foodId);
+  const firma = signature(ids);
+  const voto = data.ratings[firma]?.voto ?? 0;
+  const vote = (v: 1 | -1) => {
+    const nuevo = voto === v ? 0 : v;
+    rateMeal(firma, nuevo, ids, meal.bloque);
+    if (nuevo) onToast(nuevo > 0 ? '👍 Anotado: os gusta esta combinación' : '👎 Anotado: el generador la evitará');
+  };
   const setMeal = (m: Meal) => onChange({ ...option, meal: m, plantilla: undefined });
   const adjust = (goal: 'volumen' | 'alta_proteina') => {
     const r = adjustMeal(meal, goal, genCtx, prohibidos, targets);
@@ -44,9 +52,19 @@ export function OptionCard({
   return (
     <div className="card">
       <div className="col" style={{ gap: 2 }}>
-        <span className="option-label">
-          Opción {index + 1} · {option.etiqueta}
-        </span>
+        <div className="row between">
+          <span className="option-label">
+            Opción {index + 1} · {option.etiqueta}
+          </span>
+          <div className="thumbs">
+            <button className={voto > 0 ? 'on' : ''} onClick={() => vote(1)} aria-label="Nos gusta" title="Nos gusta">
+              👍
+            </button>
+            <button className={voto < 0 ? 'on' : ''} onClick={() => vote(-1)} aria-label="No nos gusta" title="No nos gusta">
+              👎
+            </button>
+          </div>
+        </div>
         <h3 style={{ fontSize: '0.98rem' }}>{meal.nombre}</h3>
         {option.plantilla && <span className="tiny muted">{option.plantilla}</span>}
       </div>

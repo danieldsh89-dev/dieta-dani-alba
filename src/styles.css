@@ -18,6 +18,8 @@
   --radius: 14px;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
   --nav-h: 62px;
+  --chart-dani: #2c6fbb;
+  --chart-alba: #b0457b;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
   background: var(--bg);
@@ -39,6 +41,8 @@
     --alba-soft: #36202c;
     --warn-soft: #3a2d14;
     --bad-soft: #3a1d1a;
+    --chart-dani: #5b97dc;
+    --chart-alba: #d06fa0;
   }
 }
 
@@ -782,4 +786,115 @@ textarea:focus {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
+}
+
+/* Vista plato: barra de macros */
+.macrobar {
+  display: flex;
+  width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--line);
+}
+.macrobar span {
+  display: block;
+  height: 100%;
+}
+.mb-p {
+  background: #3a8fd8;
+}
+.mb-c {
+  background: #e8aa32;
+}
+.mb-f {
+  background: #c9567f;
+}
+.mb-legend {
+  display: flex;
+  gap: 8px;
+}
+.mb-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 2px;
+}
+
+/* Modo cocinar */
+.cook {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--bg);
+  overflow-y: auto;
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cook-item {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+}
+.cook-item.done {
+  opacity: 0.45;
+}
+.cook-item .name {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+.cook-q {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  text-align: center;
+}
+.cook-q .lbl {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.cook-q .val {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.cook-q .val small {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.thumbs {
+  display: flex;
+  gap: 4px;
+}
+.thumbs button {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 8px;
+  font-size: 1rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  opacity: 0.55;
+}
+.thumbs button.on {
+  opacity: 1;
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.fav-photo {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.chart text {
+  fill: var(--muted);
+  font-size: 10px;
 }

@@ -137,9 +137,20 @@ export interface Profile {
     /** gramos máximos de legumbre por comida (null = sin límite) */
     maxLegumbresPorComida: number | null;
   };
+  /** días de entrenamiento: objetivos distintos (más hidratos) */
+  entreno: TrainingConfig;
   /** preferencias de sabor para el bloque A */
   saborPreferidoA: 'dulce' | 'salado' | 'ambos';
   notas: string;
+}
+
+export interface TrainingConfig {
+  activo: boolean;
+  /** días de la semana que entrena por defecto (0 = lunes … 6 = domingo) */
+  dias: number[];
+  kcalDia: number;
+  proteinaDia: number;
+  bloques: Record<Block, BlockTarget>;
 }
 
 export interface Nutrients {
@@ -157,6 +168,8 @@ export interface MealItem {
   metodoId?: string;
   /** Cantidad en el ESTADO NUTRICIONAL BASE del alimento (g o ml). 0 = este perfil no lo come */
   cantidades: Record<ProfileId, number>;
+  /** cantidad fija: el optimizador no la toca al ajustar el resto */
+  bloqueado?: boolean;
 }
 
 export interface Meal {
@@ -172,6 +185,11 @@ export interface Favorite extends Meal {
   creado: string;
   /** Instantánea de los totales al guardar */
   totales: Record<ProfileId, Nutrients>;
+  /** veces que se ha usado (para ordenar por más usados) */
+  usos?: number;
+  ultimoUso?: string;
+  /** foto (dataURL JPEG reducida) */
+  foto?: string;
 }
 
 export interface FreeMeal {
@@ -187,6 +205,22 @@ export interface DayLog {
   bloques: Partial<Record<Block, DaySlot>>;
   /** El usuario pidió compensar comidas libres en el resto del día */
   compensar?: boolean;
+  /** tipo de día por perfil si se cambia a mano (si no, según los días de entreno del perfil) */
+  entreno?: Partial<Record<ProfileId, boolean>>;
+}
+
+export interface WeightEntry {
+  profile: ProfileId;
+  fecha: string;
+  kg: number;
+}
+
+/** Valoración 👍/👎 de una combinación de ingredientes */
+export interface Rating {
+  voto: 1 | -1;
+  foods: string[];
+  bloque: Block;
+  fecha: string;
 }
 
 export type WeightView = 'crudo' | 'cocinado';
@@ -228,6 +262,10 @@ export interface AppData {
   pantry: string[];
   /** ids de alimentos marcados en la lista de la compra */
   shoppingChecked: string[];
+  /** registro de peso */
+  pesos: WeightEntry[];
+  /** firma de ingredientes → valoración */
+  ratings: Record<string, Rating>;
   settings: Settings;
   sync: SyncState;
 }

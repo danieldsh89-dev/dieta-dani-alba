@@ -3,9 +3,12 @@
  * y una marca de tiempo. Gana la versión más reciente (last-writer-wins) por documento.
  * Funciones puras: sin red ni React (testeadas en __tests__/sync.test.ts).
  */
-import type { AppData, DayLog, Favorite, Food, CookingConversion, Profile, ProfileId, SyncState } from '../types';
+import type { AppData, DayLog, Favorite, Food, CookingConversion, Profile, ProfileId, Rating, SyncState, WeightEntry } from '../types';
 
-export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping';
+export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating';
+
+/** id del documento de peso: perfil:fecha */
+export const weightId = (w: Pick<WeightEntry, 'profile' | 'fecha'>) => `${w.profile}:${w.fecha}`;
 
 export interface SyncRow {
   kind: DocKind;
@@ -83,6 +86,10 @@ export function readDoc(d: AppData, kind: DocKind, id: string): unknown {
       return sharedSettings(d);
     case 'shopping':
       return d.shoppingChecked;
+    case 'weight':
+      return d.pesos.find((w) => weightId(w) === id);
+    case 'rating':
+      return d.ratings[id];
   }
 }
 
@@ -167,6 +174,10 @@ function writeDoc(d: AppData, kind: DocKind, id: string, data: unknown): AppData
       return { ...d, settings: { ...d.settings, ...(data as object) } };
     case 'shopping':
       return { ...d, shoppingChecked: Array.isArray(data) ? (data as string[]) : d.shoppingChecked };
+    case 'weight':
+      return { ...d, pesos: upsertById(d.pesos, data as WeightEntry, weightId).sort((a, b) => a.fecha.localeCompare(b.fecha)) };
+    case 'rating':
+      return { ...d, ratings: { ...d.ratings, [id]: data as Rating } };
   }
 }
 
@@ -180,6 +191,13 @@ function removeDoc(d: AppData, kind: DocKind, id: string): AppData {
       return { ...d, favorites: d.favorites.filter((f) => f.id !== id) };
     case 'day':
       return { ...d, history: d.history.filter((h) => h.fecha !== id) };
+    case 'weight':
+      return { ...d, pesos: d.pesos.filter((w) => weightId(w) !== id) };
+    case 'rating': {
+      const ratings = { ...d.ratings };
+      delete ratings[id];
+      return { ...d, ratings };
+    }
     default:
       return d;
   }

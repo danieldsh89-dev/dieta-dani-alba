@@ -9,7 +9,7 @@
 import type { AppData } from '../types';
 import { PROFILE_IDS } from '../types';
 import { createSeedData } from '../store/seed';
-import { key, readDoc, type DocKind } from './docs';
+import { key, readDoc, weightId, type DocKind } from './docs';
 
 export const BASELINE_CREATOR = 2_000_000;
 export const BASELINE_JOINER = 1_000_000;
@@ -32,6 +32,8 @@ export function unstampedChanges(d: AppData): { changed: string[]; deleted: stri
   PROFILE_IDS.forEach((p) => check('profile', p));
   d.favorites.forEach((f) => check('fav', f.id));
   d.history.forEach((h) => check('day', h.fecha));
+  d.pesos.forEach((w) => check('weight', weightId(w)));
+  Object.keys(d.ratings).forEach((id) => check('rating', id));
   check('pantry', 'all');
   check('shopping', 'all');
   check('shared', 'all');

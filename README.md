@@ -185,3 +185,31 @@ Si los dos cambian lo mismo, gana el cambio más reciente. Funciona sin conexió
 
 Seguridad: la tabla no es accesible directamente (RLS activado, sin políticas); solo mediante dos funciones que exigen
 la clave secreta del hogar (24 caracteres aleatorios). Quien tenga el código del hogar puede ver y cambiar los datos.
+
+
+---
+
+## Novedades v1.2
+
+**Comodidad**
+- **↻ Repetir ayer** (Hoy): copia las comidas de ayer en los bloques vacíos de hoy. En cada bloque vacío, **↻ Como ayer**.
+- **⧉ Copiar hoy a mañana** en un toque (rellena solo los bloques vacíos de mañana).
+- **Favoritos más usados arriba** (cuentan los usos al elegirlos en Hoy, Plan o Favoritos).
+- **🕘 Comidas recientes** en el generador: las últimas combinaciones del bloque, para reutilizarlas con un toque.
+- **🔒 Bloquear ingredientes**: toca un ingrediente → "Bloquear esta cantidad" (o escribe una cantidad exacta: se bloquea sola).
+  **⚖️ Ajustar el resto** recalcula los demás para cumplir el objetivo sin tocar lo bloqueado. Ideal si ya has cocinado una cantidad fija.
+
+**Dieta**
+- **🏋️ Días de entreno / 😴 descanso** por persona, con objetivos distintos (más kcal en el bloque B, para hidratos).
+  Días por defecto en Configuración (L, X, V al principio); en Hoy se cambia cualquier día con un toque.
+- **⚖️ Registro de peso** (Más → Progreso o botón 📈 en Hoy): gráfica, tendencia (media 7 días), ritmo en kg/semana y
+  semanas estimadas hasta el objetivo. El último peso actualiza el perfil.
+- **👍/👎** en cada opción del generador: aprende qué combinaciones e ingredientes os gustan (se comparten al sincronizar).
+
+**Visualización**
+- **📊 Gráficas** de 7/14/28 días: kcal y proteína por día frente al objetivo de ese día y % de días cumplidos
+  (kcal ±10 % y proteína ≥ 90 %), con tabla por días.
+- **📷 Fotos en favoritos** para reconocerlos de un vistazo.
+- **Vista plato**: barra de reparto de kcal (proteína / hidratos / grasa) en cada comida y en el total del día.
+- **👨‍🍳 Modo cocinar**: pantalla completa con letra grande, cantidades de Dani, Alba y **total a pesar**,
+  crudo/cocinado, marcar lo ya pesado y pantalla siempre encendida.

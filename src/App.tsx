@@ -9,10 +9,11 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { BatchScreen, ConversionsScreen, DataScreen, HistoryScreen } from './screens/ToolsScreens';
 import { PlanScreen } from './screens/PlanScreen';
 import { SyncScreen } from './screens/SyncScreen';
+import { ProgressScreen } from './screens/ProgressScreen';
 import { useStore } from './store/AppStore';
 
 type Tab = 'inicio' | 'plan' | 'generar' | 'alimentos' | 'favoritos' | 'mas';
-type MoreView = 'menu' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
+type MoreView = 'menu' | 'progreso' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
 
 const TABS: { id: Tab; label: string; ico: string }[] = [
   { id: 'inicio', label: 'Hoy', ico: '🏠' },
@@ -24,6 +25,7 @@ const TABS: { id: Tab; label: string; ico: string }[] = [
 ];
 
 const MORE_ITEMS: { id: Exclude<MoreView, 'menu'>; ico: string; title: string; sub: string }[] = [
+  { id: 'progreso', ico: '📈', title: 'Progreso', sub: 'Peso, tendencia y gráficas semanales de kcal y proteína' },
   { id: 'sync', ico: '☁️', title: 'Sincronizar', sub: 'Compartir datos entre los móviles de Dani y Alba' },
   { id: 'config', ico: '👥', title: 'Configuración', sub: 'Perfiles, objetivos A/B/C, misma receta' },
   { id: 'conversiones', ico: '⚖️', title: 'Crudo / cocinado', sub: 'Factores de cocción y calibrar' },
@@ -96,7 +98,16 @@ export default function App() {
         </div>
       </header>
 
-      {tab === 'inicio' && <HomeScreen onGenerate={(b) => goGenerate(b)} onToast={showToast} />}
+      {tab === 'inicio' && (
+        <HomeScreen
+          onGenerate={(b) => goGenerate(b)}
+          onProgress={() => {
+            setTab('mas');
+            setMore('progreso');
+          }}
+          onToast={showToast}
+        />
+      )}
       {tab === 'plan' && <PlanScreen onGenerate={goGenerate} onToast={showToast} />}
       {tab === 'generar' && (
         <GeneratorScreen key={genKey} preset={preset} onToast={showToast} onUsed={() => setTab(returnTo === 'plan' ? 'plan' : 'inicio')} />
@@ -119,6 +130,7 @@ export default function App() {
           </div>
         </div>
       )}
+      {tab === 'mas' && more === 'progreso' && <ProgressScreen onToast={showToast} />}
       {tab === 'mas' && more === 'sync' && <SyncScreen onToast={showToast} />}
       {tab === 'mas' && more === 'config' && <SettingsScreen onToast={showToast} />}
       {tab === 'mas' && more === 'conversiones' && <ConversionsScreen onToast={showToast} />}

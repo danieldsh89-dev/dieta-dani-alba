@@ -146,6 +146,37 @@ export function TotalsBox({
         )}
       </div>
       <Macros n={n} />
+      <MacroBar n={n} />
+    </div>
+  );
+}
+
+/** Vista "plato": reparto de kcal entre proteína, hidratos y grasa. */
+export function MacroBar({ n, height = 8 }: { n: Nutrients; height?: number }) {
+  const p = n.proteina * 4;
+  const c = n.carbohidratos * 4;
+  const f = n.grasas * 9;
+  const t = p + c + f;
+  if (t <= 0) return null;
+  const pct = (x: number) => Math.round((x / t) * 100);
+  return (
+    <div className="col" style={{ gap: 2 }}>
+      <div className="macrobar" style={{ height }} title={`Proteína ${pct(p)}% · Hidratos ${pct(c)}% · Grasa ${pct(f)}%`}>
+        <span className="mb-p" style={{ width: `${(p / t) * 100}%` }} />
+        <span className="mb-c" style={{ width: `${(c / t) * 100}%` }} />
+        <span className="mb-f" style={{ width: `${(f / t) * 100}%` }} />
+      </div>
+      <div className="tiny muted mb-legend">
+        <span>
+          <i className="mb-p" /> P {pct(p)}%
+        </span>
+        <span>
+          <i className="mb-c" /> HC {pct(c)}%
+        </span>
+        <span>
+          <i className="mb-f" /> G {pct(f)}%
+        </span>
+      </div>
     </div>
   );
 }

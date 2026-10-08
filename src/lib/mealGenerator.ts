@@ -21,6 +21,7 @@ import type {
   Nutrients,
   Profile,
   ProfileId,
+  Rating,
   Settings,
 } from '../types';
 import { PROFILE_IDS } from '../types';
@@ -67,6 +68,8 @@ export interface GeneratorContext {
   conversions: CookingConversion[];
   profiles: Record<ProfileId, Profile>;
   settings: Pick<Settings, 'mismaRecetaParaAmbos' | 'permitirComplementosDistintos'>;
+  /** valoraciones 👍/👎 para aprender gustos */
+  ratings?: Record<string, Rating>;
 }
 
 export interface GeneratedOption {
@@ -90,6 +93,9 @@ export interface GeneratorResult {
 // ───────────────────────── utilidades internas ─────────────────────────
 
 interface Ctx {
+  /** preferencia aprendida por alimento (suma de 👍 −👎, acotada) */
+  likes: Record<string, number>;
+  ratings: Record<string, Rating>;
   fm: FoodMap;
   cm: ConversionMap;
   profiles: Record<ProfileId, Profile>;
@@ -235,8 +241,19 @@ export function optimizeQuantities(
   target: BlockTarget,
   style: Style,
   cm: ConversionMap,
+  /** cantidades fijas (en unidades de ración) que no se tocan; undefined = libre */
+  fixed: (number | undefined)[] = [],
 ): { serving: number[]; cost: number; totals: Totals } {
-  const vars = foods.map((f) => buildVar(f, profile, cm));
+  const vars = foods.map((f, i) => {
+    const v = buildVar(f, profile, cm);
+    const fx = fixed[i];
+    if (fx !== undefined) {
+      // bloqueado: un único valor posible y "habitual" = ese valor (no penaliza)
+      v.values = [fx];
+      v.range = { ...v.range, min: fx, max: fx, habitual: fx };
+    }
+    return v;
+  });
   const evalS = (s: number[]) => profileCost(totals(vars, s), s, vars, target, style);
 
   const starts: number[][] = [];
@@ -381,7 +398,7 @@ function popularity(bloque: Block): Record<string, number> {
   return pop;
 }
 
-function rankFood(f: Food, req: GeneratorRequest, pop: Record<string, number>): number {
+function rankFood(f: Food, req: GeneratorRequest, pop: Record<string, number>, likes: Record<string, number> = {}): number {
   let s = 0;
   if (req.opcionales.includes(f.id)) s += 3;
   if (req.disponibles.includes(f.id)) s += 1;
@@ -403,6 +420,7 @@ function rankFood(f: Food, req: GeneratorRequest, pop: Record<string, number>): 
       break;
   }
   if (req.bloque !== 'A' && (f.categoria === 'postre' || f.tags.includes('acompanante'))) s += 0.6;
+  s += 0.4 * (likes[f.id] ?? 0);
   if (f.tags.includes('provisional')) s -= 0.2;
   return s;
 }
@@ -457,7 +475,7 @@ function buildCandidates(req: GeneratorRequest, ctx: Ctx, pool: Pool): Candidate
   const ranked = (cat: Category, exclude: Set<string>) =>
     usable
       .filter((f) => f.categoria === cat && !exclude.has(f.id))
-      .sort((a, b) => rankFood(b, req, pop) - rankFood(a, req, pop) || a.id.localeCompare(b.id))[0];
+      .sort((a, b) => rankFood(b, req, pop, ctx.likes) - rankFood(a, req, pop, ctx.likes) || a.id.localeCompare(b.id))[0];
 
   const out: CandidateSet[] = [];
 
@@ -489,7 +507,7 @@ function buildCandidates(req: GeneratorRequest, ctx: Ctx, pool: Pool): Candidate
           !req.obligatorios.includes(f.id) &&
           (!f.tags.includes('solo_en_receta') || req.opcionales.includes(f.id) || req.disponibles.includes(f.id)),
       )
-      .sort((a, b) => rankFood(b, req, pop) - rankFood(a, req, pop) || a.id.localeCompare(b.id));
+      .sort((a, b) => rankFood(b, req, pop, ctx.likes) - rankFood(a, req, pop, ctx.likes) || a.id.localeCompare(b.id));
     // los "quiero incluir" siempre entran como opción
     const top = cands.slice(0, K);
     for (const o of cands) if (req.opcionales.includes(o.id) && !top.includes(o)) top.push(o);
@@ -559,6 +577,10 @@ function setPenalty(ids: string[], req: GeneratorRequest, ctx: Ctx, profiles: Pr
     }
   }
   if (req.estilo === 'con_postre' && !foods.some((f) => isComp(f) && f.categoria !== 'queso')) pen += 2;
+  // gustos aprendidos: combinación exacta valorada y alimentos que gustan / no gustan
+  const r = ctx.ratings[signature(ids)];
+  if (r) pen += r.voto > 0 ? -0.8 : 4;
+  pen -= 0.15 * ids.reduce((s, id) => s + (ctx.likes[id] ?? 0), 0);
   if (req.estilo === 'volumen' && !foods.some((f) => f.categoria === 'verdura')) pen += 0.8;
   return pen + 0;
 }
@@ -612,8 +634,17 @@ function diff(a: string[], b: string[]): number {
 
 // ───────────────────────── API principal ─────────────────────────
 
+export function learnedLikes(ratings: Record<string, Rating> = {}): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of Object.values(ratings)) for (const id of r.foods) out[id] = (out[id] ?? 0) + r.voto;
+  for (const id of Object.keys(out)) out[id] = Math.max(-3, Math.min(3, out[id]));
+  return out;
+}
+
 function makeCtx(req: GeneratorRequest, gctx: GeneratorContext): Ctx {
   return {
+    likes: learnedLikes(gctx.ratings),
+    ratings: gctx.ratings ?? {},
     fm: toFoodMap(gctx.foods),
     cm: toConversionMap(gctx.conversions),
     profiles: gctx.profiles,
@@ -873,8 +904,14 @@ export function reoptimizeMeal(
     if (!idx.length) continue;
     const foods = idx.map((i) => ctx.fm[items[i].foodId]).filter(Boolean);
     if (foods.length !== idx.length) continue;
-    const r = optimizeQuantities(foods, ctx.profiles[pid], ctx.targets[pid], style, ctx.cm);
+    // 🔒 los ingredientes bloqueados mantienen su cantidad; se ajusta el resto
+    const fixed = idx.map((i, k) =>
+      items[i].bloqueado ? baseToServing(foods[k], items[i].cantidades[pid], ctx.cm, items[i].metodoId) : undefined,
+    );
+    if (fixed.every((f) => f !== undefined)) continue;
+    const r = optimizeQuantities(foods, ctx.profiles[pid], ctx.targets[pid], style, ctx.cm, fixed);
     idx.forEach((i, k) => {
+      if (items[i].bloqueado) return;
       items[i].cantidades[pid] = servingToBase(foods[k], r.serving[k], ctx.cm, items[i].metodoId);
     });
   }

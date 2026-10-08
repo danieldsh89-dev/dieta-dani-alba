@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import type { Block, Meal } from '../types';
-import { BLOCKS } from '../types';
+import { BLOCKS, PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
-import { generateMeals, STYLE_LABELS, targetsFor, type GeneratedOption, type GeneratorRequest, type Style } from '../lib/mealGenerator';
-import { compensatedTargets, todayKey } from '../lib/day';
+import { generateMeals, STYLE_LABELS, type GeneratedOption, type GeneratorRequest, type Style } from '../lib/mealGenerator';
+import { dayGoals, targetsForDay, todayKey } from '../lib/day';
 import { formatDay } from '../lib/planning';
+import { recentMeals } from '../lib/recent';
 import { FoodSelector } from '../components/FoodPicker';
 import { OptionCard } from '../components/OptionCard';
 import { Segmented, Warnings } from '../components/ui';
@@ -49,8 +50,9 @@ export function GeneratorScreen({
   const isToday = fecha === todayKey();
   const fechaText = isToday ? 'hoy' : formatDay(fecha, { weekday: 'long', day: 'numeric' });
   const today = getDay(fecha);
-  const objetivos = useMemo(() => compensatedTargets(today, bloque, data.profiles, fm), [today, bloque, data.profiles, fm]);
-  const targets = useMemo(() => targetsFor(bloque, data.profiles, objetivos), [bloque, data.profiles, objetivos]);
+  const objetivos = useMemo(() => targetsForDay(fecha, bloque, data.profiles, today, fm), [fecha, bloque, data.profiles, today, fm]);
+  const targets = objetivos;
+  const entrenos = PROFILE_IDS.filter((p) => dayGoals(data.profiles[p], fecha, today).entreno).map((p) => data.profiles[p].nombre);
 
   const buildReq = (extraExcl: string[] = []): GeneratorRequest => {
     const casa = modo === 'casa';
@@ -98,6 +100,7 @@ export function GeneratorScreen({
   };
 
   const togglePantry = (ids: string[]) => setPantry(ids);
+  const recientes = useMemo(() => recentMeals(data.history, bloque, 6), [data.history, bloque]);
   const casa = modo === 'casa';
 
   return (
@@ -136,7 +139,8 @@ export function GeneratorScreen({
         <div className="sub">
           {BLOCK_DESC[bloque]} · Objetivo: <span className="dani">Dani {targets.dani.kcal}±{targets.dani.tolerancia}</span> ·{' '}
           <span className="alba">Alba {targets.alba.kcal}±{targets.alba.tolerancia}</span> kcal
-          {objetivos && <span className="badge warn"> compensando comida libre</span>}
+          {today?.compensar && <span className="badge warn"> compensando comida libre</span>}
+          {entrenos.length > 0 && <span className="badge ok"> 🏋️ día de entreno: {entrenos.join(' y ')}</span>}
         </div>
 
         {casa ? (
@@ -198,6 +202,28 @@ export function GeneratorScreen({
             </>
           )}
         </div>
+        {!casa && recientes.length > 0 && (
+          <details className="recent">
+            <summary className="step-title" style={{ cursor: 'pointer' }}>
+              🕘 Comidas recientes en {bloque} ({recientes.length})
+            </summary>
+            <div className="list" style={{ marginTop: 6 }}>
+              {recientes.map((r) => (
+                <div key={r.firma} className="list-item" style={{ cursor: 'default' }}>
+                  <div className="grow col" style={{ gap: 1 }}>
+                    <span className="ttl small">{r.meal.nombre}</span>
+                    <span className="tiny muted">
+                      {formatDay(r.fecha)} · {r.veces} {r.veces === 1 ? 'vez' : 'veces'}
+                    </span>
+                  </div>
+                  <button className="btn small soft" onClick={() => use({ ...r.meal, id: `${r.meal.id}_${Date.now().toString(36)}` })}>
+                    ✓ Usar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
         {!data.settings.mismaRecetaParaAmbos && <Warnings items={['“Misma receta para ambos” está desactivado: cada uno recibirá su propio plato.']} />}
         <button className="btn primary block" onClick={() => run([])} disabled={casa && data.pantry.length === 0}>
           {casa ? '🍳 Crear comida' : '⚙️ Generar opciones'}

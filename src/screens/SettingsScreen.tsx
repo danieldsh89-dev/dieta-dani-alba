@@ -101,7 +101,7 @@ function ProfileForm({ profile, onToast }: { profile: Profile; onToast: (t: stri
           <NumberInput value={p.escalaRaciones} step={0.05} onChange={(v) => set('escalaRaciones', v ?? 1)} />
         </label>
         <label className="field">
-          kcal / día
+          kcal / día{p.entreno?.activo ? ' (descanso)' : ''}
           <NumberInput value={p.kcalDia} step={10} onChange={(v) => set('kcalDia', v ?? 0)} />
         </label>
         <label className="field">
@@ -110,7 +110,7 @@ function ProfileForm({ profile, onToast }: { profile: Profile; onToast: (t: stri
         </label>
       </div>
       <hr />
-      <b className="small">Objetivos por bloque</b>
+      <b className="small">Objetivos por bloque {p.entreno?.activo ? '(días de descanso)' : ''}</b>
       <div className="grid3 tiny muted" style={{ gridTemplateColumns: '28px 1fr 1fr 1fr' }}>
         <span />
         <span>kcal</span>
@@ -124,6 +124,8 @@ function ProfileForm({ profile, onToast }: { profile: Profile; onToast: (t: stri
         Suma bloques: {sumBlocks} kcal ({p.kcalDia - sumBlocks >= 0 ? `${p.kcalDia - sumBlocks} libres` : `${sumBlocks - p.kcalDia} por encima`} del
         objetivo diario) · Proteína {sumProt} g
       </div>
+      <hr />
+      <TrainingSection p={p} setP={setP} />
       <hr />
       <b className="small">Restricciones y preferencias</b>
       <label className="check">
@@ -165,6 +167,78 @@ function ProfileForm({ profile, onToast }: { profile: Profile; onToast: (t: stri
         <textarea rows={3} value={p.notas} onChange={(e) => set('notas', e.target.value)} />
       </label>
     </div>
+  );
+}
+
+const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+function TrainingSection({ p, setP }: { p: Profile; setP: (fn: (x: Profile) => Profile) => void }) {
+  const e = p.entreno;
+  const upd = (patch: Partial<Profile['entreno']>) => setP((x) => ({ ...x, entreno: { ...x.entreno, ...patch } }));
+  const sum = BLOCKS.reduce((s, b) => s + e.bloques[b].kcal, 0);
+  return (
+    <>
+      <label className="check">
+        <input type="checkbox" checked={e.activo} onChange={(ev) => upd({ activo: ev.target.checked })} />
+        <b className="small">🏋️ Objetivos distintos los días de entreno</b>
+      </label>
+      {e.activo && (
+        <>
+          <div className="sub">Días de entreno por defecto (en Hoy puedes cambiar cualquier día con un toque):</div>
+          <div className="chips">
+            {WEEKDAYS.map((d, i) => (
+              <button
+                key={d}
+                className={`chip ${e.dias.includes(i) ? 'on' : ''}`}
+                onClick={() => upd({ dias: e.dias.includes(i) ? e.dias.filter((x) => x !== i) : [...e.dias, i].sort() })}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+          <div className="grid2">
+            <label className="field">
+              kcal / día de entreno
+              <NumberInput value={e.kcalDia} step={10} onChange={(v) => upd({ kcalDia: v ?? 0 })} />
+            </label>
+            <label className="field">
+              Proteína g / día de entreno
+              <NumberInput value={e.proteinaDia} onChange={(v) => upd({ proteinaDia: v ?? 0 })} />
+            </label>
+          </div>
+          <div className="grid3 tiny muted" style={{ gridTemplateColumns: '28px 1fr 1fr 1fr' }}>
+            <span />
+            <span>kcal</span>
+            <span>± tolerancia</span>
+            <span>proteína g</span>
+            {BLOCKS.map((b) => (
+              <TrainingBlockRow key={b} b={b} p={p} setP={setP} />
+            ))}
+          </div>
+          <div className="tiny muted">
+            Suma bloques en día de entreno: {sum} kcal (+{sum - BLOCKS.reduce((s, b) => s + p.bloques[b].kcal, 0)} respecto a descanso). Las kcal
+            extra van sobre todo al bloque B: el generador sube el hidrato para cuadrarlas.
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function TrainingBlockRow({ b, p, setP }: { b: 'A' | 'B' | 'C'; p: Profile; setP: (fn: (x: Profile) => Profile) => void }) {
+  const t = p.entreno.bloques[b];
+  const upd = (k: keyof typeof t, v: number | undefined) =>
+    setP((x) => ({
+      ...x,
+      entreno: { ...x.entreno, bloques: { ...x.entreno.bloques, [b]: { ...x.entreno.bloques[b], [k]: v ?? 0 } } },
+    }));
+  return (
+    <>
+      <b style={{ alignSelf: 'center', color: 'var(--primary)' }}>{b}</b>
+      <NumberInput value={t.kcal} step={10} onChange={(v) => upd('kcal', v)} />
+      <NumberInput value={t.tolerancia} step={5} onChange={(v) => upd('tolerancia', v)} />
+      <NumberInput value={t.proteina} onChange={(v) => upd('proteina', v)} />
+    </>
   );
 }
 

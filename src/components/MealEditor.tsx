@@ -14,7 +14,8 @@ import {
 import { mealNutrients } from '../lib/nutrition';
 import { portionRange } from '../lib/portions';
 import { mealWarnings } from '../lib/validation';
-import { mealName, shortName } from '../lib/mealGenerator';
+import { mealName, reoptimizeMeal, shortName } from '../lib/mealGenerator';
+import { CookMode } from './CookMode';
 import { mergeDuplicates } from '../lib/substitutions';
 import { FoodPickerList } from './FoodPicker';
 import { SubstituteSheet } from './SubstituteSheet';
@@ -44,7 +45,8 @@ export function MealEditor({
   onSubstituteHandled?: () => void;
   onToast?: (t: string) => void;
 }) {
-  const { data, fm, cm } = useStore();
+  const { data, fm, cm, genCtx } = useStore();
+  const [cooking, setCooking] = useState(false);
   const view = data.settings.mostrarPesos;
   const [actionIdx, setActionIdx] = useState<number | null>(null);
   const [substIdx, setSubstIdx] = useState<number | null>(null);
@@ -125,6 +127,7 @@ export function MealEditor({
                 <span className="n">{shortName(food)}</span>
                 <span className="row tiny muted" style={{ gap: 4 }}>
                   {st && <span>{st}</span>}
+                  {it.bloqueado && <span title="Cantidad bloqueada">🔒</span>}
                   {food.verificacion !== 'verificado' && <span title={food.notaVerificacion}>≈ aprox.</span>}
                   {food.aviso && <span title={food.aviso}>⚠️</span>}
                 </span>
@@ -153,11 +156,31 @@ export function MealEditor({
           );
         })}
       </div>
-      {editable && (
-        <button className="btn small" onClick={() => setAdding(true)}>
-          ＋ Añadir ingrediente
+      <div className="btn-row">
+        {editable && (
+          <button className="btn small" onClick={() => setAdding(true)}>
+            ＋ Añadir ingrediente
+          </button>
+        )}
+        {editable && targets && (
+          <button
+            className="btn small"
+            title="Recalcula las cantidades para el objetivo; respeta los ingredientes con 🔒"
+            onClick={() => {
+              const r = reoptimizeMeal(meal, 'equilibrada', genCtx, targets);
+              update({ ...meal, items: r.meal.items });
+              const locked = meal.items.filter((i) => i.bloqueado).length;
+              onToast?.(locked ? `Ajustado el resto (${locked} 🔒 sin tocar)` : 'Cantidades ajustadas al objetivo');
+            }}
+          >
+            ⚖️ {meal.items.some((i) => i.bloqueado) ? 'Ajustar el resto' : 'Ajustar al objetivo'}
+          </button>
+        )}
+        <button className="btn small" onClick={() => setCooking(true)}>
+          👨‍🍳 Modo cocinar
         </button>
-      )}
+      </div>
+      {cooking && <CookMode meal={meal} onClose={() => setCooking(false)} />}
       {!hideTotals && (
         <div className="totals">
           {PROFILE_IDS.map((p) => (
@@ -245,7 +268,8 @@ function ItemActions({
     const base = food.unidadBase === 'unidad' ? v * (food.pesoUnidad ?? 1) : baseFromState(food, v, view, cm, it.metodoId);
     onChange({
       ...meal,
-      items: meal.items.map((x, i) => (i === idx ? { ...x, cantidades: { ...x.cantidades, [pid]: base } } : x)),
+      // al escribir una cantidad exacta se bloquea, para que "Ajustar" no la cambie
+      items: meal.items.map((x, i) => (i === idx ? { ...x, bloqueado: true, cantidades: { ...x.cantidades, [pid]: base } } : x)),
     });
   };
 
@@ -280,7 +304,7 @@ function ItemActions({
               );
             })}
           </div>
-          <div className="tiny muted">0 = ese perfil no lo lleva.</div>
+          <div className="tiny muted">0 = ese perfil no lo lleva. Al escribir una cantidad, el ingrediente se bloquea 🔒.</div>
           {methods.length > 1 && (
             <label className="field">
               Método de cocción
@@ -299,6 +323,14 @@ function ItemActions({
             </label>
           )}
           <div className="col">
+            <button
+              className={`btn ${it.bloqueado ? 'primary' : ''}`}
+              onClick={() =>
+                onChange({ ...meal, items: meal.items.map((x, i) => (i === idx ? { ...x, bloqueado: !x.bloqueado } : x)) })
+              }
+            >
+              {it.bloqueado ? '🔒 Bloqueado: no se toca al ajustar (tocar para desbloquear)' : '🔓 Bloquear esta cantidad (p. ej. ya cocinada)'}
+            </button>
             <button className="btn soft" onClick={onSubstitute}>
               ⇄ Sustituir (comparador)
             </button>

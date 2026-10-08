@@ -10,6 +10,7 @@ import type {
   Meal,
   Profile,
   ProfileId,
+  Rating,
   Settings,
 } from '../types';
 import { PROFILE_IDS } from '../types';
@@ -17,7 +18,7 @@ import { toConversionMap, type ConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap, type FoodMap } from '../lib/nutrition';
 import type { GeneratorContext } from '../lib/mealGenerator';
 import { todayKey } from '../lib/day';
-import { key, tombstone, touch } from '../sync/docs';
+import { key, tombstone, touch, weightId } from '../sync/docs';
 import { applyBaseline, BASELINE_CREATOR, BASELINE_JOINER } from '../sync/baseline';
 import { isSyncEnabled, syncOnce } from '../sync/engine';
 import type { CloudConfig } from '../sync/supabase';
@@ -41,6 +42,13 @@ interface Store {
   addFavorite: (meal: Meal) => Favorite;
   updateFavorite: (fav: Favorite) => void;
   removeFavorite: (id: string) => void;
+  /** registra que se ha usado un favorito (para ordenar por más usados) */
+  markFavoriteUsed: (id: string) => void;
+  setDayTraining: (pid: ProfileId, value: boolean | undefined, fecha?: string) => void;
+  addWeight: (pid: ProfileId, kg: number, fecha?: string) => void;
+  removeWeight: (pid: ProfileId, fecha: string) => void;
+  /** 👍 (1) / 👎 (-1) / quitar (0) una combinación de ingredientes */
+  rateMeal: (firma: string, voto: 1 | -1 | 0, foods: string[], bloque: Block) => void;
   getDay: (fecha?: string) => DayLog | undefined;
   setDaySlot: (block: Block, slot: DaySlot | undefined, fecha?: string) => void;
   setCompensar: (value: boolean, fecha?: string) => void;
@@ -90,8 +98,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const cm = useMemo(() => toConversionMap(data.conversions), [data.conversions]);
   const activeFoods = useMemo(() => data.foods.filter((f) => !f.archivado), [data.foods]);
   const genCtx = useMemo<GeneratorContext>(
-    () => ({ foods: data.foods, conversions: data.conversions, profiles: data.profiles, settings: data.settings }),
-    [data.foods, data.conversions, data.profiles, data.settings],
+    () => ({ foods: data.foods, conversions: data.conversions, profiles: data.profiles, settings: data.settings, ratings: data.ratings }),
+    [data.foods, data.conversions, data.profiles, data.settings, data.ratings],
   );
 
   const saveFood = useCallback((food: Food) => {
@@ -171,6 +179,51 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setData((d) => tombstone({ ...d, favorites: d.favorites.filter((f) => f.id !== id) }, [key('fav', id)]));
   }, []);
 
+  const markFavoriteUsed = useCallback((id: string) => {
+    setData((d) => {
+      const base = d.favorites.find((f) => f.id === id);
+      if (!base) return d;
+      const fav = { ...base, usos: (base.usos ?? 0) + 1, ultimoUso: new Date().toISOString() };
+      return touch({ ...d, favorites: d.favorites.map((f) => (f.id === id ? fav : f)) }, [key('fav', id)]);
+    });
+  }, []);
+
+  const addWeight = useCallback((pid: ProfileId, kg: number, fecha = todayKey()) => {
+    setData((d) => {
+      const entry = { profile: pid, fecha, kg: Math.round(kg * 10) / 10 };
+      const pesos = [...d.pesos.filter((w) => weightId(w) !== weightId(entry)), entry].sort((a, b) => a.fecha.localeCompare(b.fecha));
+      let next: AppData = { ...d, pesos };
+      const keys = [key('weight', weightId(entry))];
+      // el último registro actualiza el peso actual del perfil
+      const latest = pesos.filter((w) => w.profile === pid).pop();
+      if (latest && latest.kg !== d.profiles[pid].pesoActualKg) {
+        next = { ...next, profiles: { ...next.profiles, [pid]: { ...next.profiles[pid], pesoActualKg: latest.kg } } };
+        keys.push(key('profile', pid));
+      }
+      return touch(next, keys);
+    });
+  }, []);
+
+  const removeWeight = useCallback((pid: ProfileId, fecha: string) => {
+    setData((d) => {
+      const id = weightId({ profile: pid, fecha });
+      return tombstone({ ...d, pesos: d.pesos.filter((w) => weightId(w) !== id) }, [key('weight', id)]);
+    });
+  }, []);
+
+  const rateMeal = useCallback((firma: string, voto: 1 | -1 | 0, foods: string[], bloque: Block) => {
+    setData((d) => {
+      const ratings = { ...d.ratings };
+      if (voto === 0) {
+        delete ratings[firma];
+        return tombstone({ ...d, ratings }, [key('rating', firma)]);
+      }
+      const r: Rating = { voto, foods: [...new Set(foods)].sort(), bloque, fecha: todayKey() };
+      ratings[firma] = r;
+      return touch({ ...d, ratings }, [key('rating', firma)]);
+    });
+  }, []);
+
   const getDay = useCallback(
     (fecha = todayKey()) => data.history.find((h) => h.fecha === fecha),
     [data.history],
@@ -180,7 +233,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     const existing = d.history.find((h) => h.fecha === fecha) ?? { fecha, bloques: {} };
     const updated = fn(structuredClone(existing));
     const others = d.history.filter((h) => h.fecha !== fecha);
-    const keep = Object.keys(updated.bloques).length > 0 || updated.compensar;
+    const keep = Object.keys(updated.bloques).length > 0 || updated.compensar || !!updated.entreno;
     const history = keep ? [...others, updated] : others;
     history.sort((a, b) => b.fecha.localeCompare(a.fecha));
     const next = { ...d, history };
@@ -201,11 +254,23 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setData((d) => updateDay(d, fecha, (day) => ({ ...day, compensar: value })));
   }, []);
 
+  const setDayTraining = useCallback((pid: ProfileId, value: boolean | undefined, fecha = todayKey()) => {
+    setData((d) =>
+      updateDay(d, fecha, (day) => {
+        const entreno = { ...day.entreno };
+        if (value === undefined) delete entreno[pid];
+        else entreno[pid] = value;
+        return { ...day, entreno: Object.keys(entreno).length ? entreno : undefined };
+      }),
+    );
+  }, []);
+
   const copyDay = useCallback((from: string, to: string) => {
     setData((d) => {
       const src = d.history.find((h) => h.fecha === from);
       if (!src || from === to) return d;
-      return updateDay(d, to, () => ({ ...structuredClone(src), fecha: to, compensar: false }));
+      const target = d.history.find((h) => h.fecha === to);
+      return updateDay(d, to, () => ({ ...structuredClone(src), fecha: to, compensar: false, entreno: target?.entreno }));
     });
   }, []);
 
@@ -232,6 +297,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ...PROFILE_IDS.map((p) => key('profile', p)),
         ...next.favorites.map((f) => key('fav', f.id)),
         ...next.history.map((h) => key('day', h.fecha)),
+        ...next.pesos.map((w) => key('weight', weightId(w))),
+        ...Object.keys(next.ratings).map((id) => key('rating', id)),
         key('pantry', 'all'),
         key('shared', 'all'),
       ];
@@ -358,6 +425,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     addFavorite,
     updateFavorite,
     removeFavorite,
+    markFavoriteUsed,
+    setDayTraining,
+    addWeight,
+    removeWeight,
+    rateMeal,
     getDay,
     setDaySlot,
     setCompensar,

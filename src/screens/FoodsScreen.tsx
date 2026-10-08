@@ -7,6 +7,7 @@ import { kcalFromMacros } from '../lib/nutrition';
 import { normalize } from '../components/FoodPicker';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { lookupBarcode } from '../lib/openFoodFacts';
+import { resizeImage } from '../lib/image';
 import { CATEGORY_ICONS, CATEGORY_LABELS, NumberInput, Sheet, VerificationBadge, Warnings } from '../components/ui';
 
 const CATS = Object.keys(CATEGORY_LABELS) as Category[];
@@ -147,25 +148,6 @@ export function FoodsScreen({ onToast }: { onToast: (t: string) => void }) {
   );
 }
 
-async function resizeImage(file: Blob, size = 256): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = rej;
-      i.src = url;
-    });
-    const scale = Math.min(1, size / Math.max(img.width, img.height));
-    const c = document.createElement('canvas');
-    c.width = Math.round(img.width * scale);
-    c.height = Math.round(img.height * scale);
-    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.75);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 function FoodForm({
   food,

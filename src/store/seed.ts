@@ -2,7 +2,8 @@ import type { AppData, Favorite, Meal, ProfileId } from '../types';
 import { PROFILE_IDS } from '../types';
 import { SEED_FOODS } from '../data/foods';
 import { SEED_CONVERSIONS } from '../data/conversions';
-import { DEFAULT_SETTINGS, SEED_PROFILES } from '../data/profiles';
+import { DEFAULT_SETTINGS, SEED_PROFILES, defaultTraining } from '../data/profiles';
+import type { Profile } from '../types';
 import { SEED_FAVORITES } from '../data/seedMeals';
 import { servingToBase, toConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap } from '../lib/nutrition';
@@ -47,6 +48,8 @@ export function createSeedData(): AppData {
     history: [],
     pantry: [],
     shoppingChecked: [],
+    pesos: [],
+    ratings: {},
     settings: { ...DEFAULT_SETTINGS },
     sync: emptySync(),
   };
@@ -66,8 +69,16 @@ export function mergeWithSeed(saved: AppData): AppData {
     shoppingChecked: saved.shoppingChecked ?? [],
     sync: { ...emptySync(), ...saved.sync },
     profiles: {
-      dani: { ...seed.profiles.dani, ...saved.profiles?.dani },
-      alba: { ...seed.profiles.alba, ...saved.profiles?.alba },
+      dani: normalizeProfile({ ...seed.profiles.dani, ...saved.profiles?.dani }, !!saved.profiles?.dani?.entreno),
+      alba: normalizeProfile({ ...seed.profiles.alba, ...saved.profiles?.alba }, !!saved.profiles?.alba?.entreno),
     },
+    pesos: saved.pesos ?? [],
+    ratings: saved.ratings ?? {},
   };
+}
+
+/** Perfiles guardados antes de la v1.2 no tienen días de entreno: se crean a partir de SUS objetivos actuales. */
+function normalizeProfile(p: Profile, hadTraining: boolean): Profile {
+  if (hadTraining) return p;
+  return { ...p, entreno: defaultTraining(p.bloques, p.kcalDia, p.proteinaDia, [0, 2, 4]) };
 }

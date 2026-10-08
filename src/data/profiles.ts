@@ -1,4 +1,21 @@
-import type { Profile, ProfileId, Settings } from '../types';
+import type { Block, BlockTarget, Profile, ProfileId, Settings, TrainingConfig } from '../types';
+
+/** Días de entreno por defecto: +kcal sobre todo en hidratos del bloque B (comida tras entrenar) */
+export function defaultTraining(bloques: Record<Block, BlockTarget>, kcalDia: number, proteinaDia: number, dias: number[]): TrainingConfig {
+  const extraB = Math.round(kcalDia * 0.045 / 10) * 10;
+  const extraA = Math.round(kcalDia * 0.01 / 10) * 10;
+  return {
+    activo: true,
+    dias,
+    kcalDia: kcalDia + extraA + extraB,
+    proteinaDia,
+    bloques: {
+      A: { ...bloques.A, kcal: bloques.A.kcal + extraA },
+      B: { ...bloques.B, kcal: bloques.B.kcal + extraB },
+      C: { ...bloques.C },
+    },
+  };
+}
 
 export const SEED_PROFILES: Record<ProfileId, Profile> = {
   dani: {
@@ -16,6 +33,12 @@ export const SEED_PROFILES: Record<ProfileId, Profile> = {
       C: { kcal: 680, tolerancia: 60, proteina: 55 },
     },
     escalaRaciones: 1,
+    entreno: defaultTraining(
+      { A: { kcal: 420, tolerancia: 40, proteina: 35 }, B: { kcal: 670, tolerancia: 50, proteina: 55 }, C: { kcal: 680, tolerancia: 60, proteina: 55 } },
+      1900,
+      160,
+      [0, 2, 4],
+    ),
     restricciones: { permitePescado: false, permiteLecheVaca: true, maxLegumbresPorComida: null },
     saborPreferidoA: 'salado',
     notas:
@@ -36,6 +59,12 @@ export const SEED_PROFILES: Record<ProfileId, Profile> = {
       C: { kcal: 560, tolerancia: 50, proteina: 38 },
     },
     escalaRaciones: 0.72,
+    entreno: defaultTraining(
+      { A: { kcal: 300, tolerancia: 40, proteina: 22 }, B: { kcal: 480, tolerancia: 40, proteina: 35 }, C: { kcal: 560, tolerancia: 50, proteina: 38 } },
+      1400,
+      100,
+      [0, 2, 4],
+    ),
     restricciones: { permitePescado: true, permiteLecheVaca: false, maxLegumbresPorComida: 100 },
     saborPreferidoA: 'ambos',
     notas:

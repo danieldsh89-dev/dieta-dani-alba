@@ -48,6 +48,18 @@ npm run preview
 
 ## 6. Instalar en Android
 
+**La app ya está publicada en: https://danieldsh89-dev.github.io/dieta-dani-alba/**
+
+1. Abre ese enlace en **Chrome** en el móvil.
+2. Menú ⋮ → **"Instalar aplicación"** (o "Añadir a pantalla de inicio" → Instalar).
+3. Aparece el icono en el móvil: se abre a pantalla completa y funciona sin internet.
+
+**Actualizar la app publicada:** cada `git push` a la rama `main` vuelve a compilar, ejecuta los tests y publica
+automáticamente (GitHub Actions, `.github/workflows/deploy.yml`). En el móvil la versión nueva se carga sola al abrir la app
+con conexión (puede hacer falta cerrarla y abrirla una segunda vez).
+
+### Alternativa: publicar en otro sitio
+
 Para que Android permita **instalar** la app y usarla **sin conexión**, tiene que servirse por **HTTPS**.
 La forma más sencilla y gratuita:
 

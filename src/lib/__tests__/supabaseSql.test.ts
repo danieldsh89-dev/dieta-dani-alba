@@ -40,7 +40,7 @@ describe('supabase/setup.sql en Postgres', () => {
 
     // otro hogar no ve nada; clave corta rechazada
     expect((await pull(null, 'OTROHOGAR0000000000000000')).rows).toHaveLength(0);
-    await expect(push([], 'CORTA')).rejects.toThrow(/no válida/);
+    await expect(push([], 'CORTA')).rejects.toThrow(/no valida/);
     expect((await pull(null, 'CORTA')).rows).toHaveLength(0);
 
     // RLS activado y sin acceso directo para anon

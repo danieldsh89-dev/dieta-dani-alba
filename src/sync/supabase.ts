@@ -13,7 +13,8 @@ async function rpc<T>(cfg: CloudConfig, fn: string, body: unknown, timeoutMs = 1
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${cfg.url.replace(/\/+$/, '')}/rest/v1/rpc/${fn}`, {
+    const base = cfg.url.trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+    const res = await fetch(`${base}/rest/v1/rpc/${fn}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -4,5 +4,5 @@
  * directamente (RLS sin políticas) y solo se puede usar con la clave secreta del hogar.
  * Si se dejan vacías, se pueden introducir desde la app (Más → Sincronizar).
  */
-export const SUPABASE_URL = '';
-export const SUPABASE_ANON_KEY = '';
+export const SUPABASE_URL = 'https://lgpdhfniwhmfmqwcnnpp.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_6fcYJvfGh75Qq73BlVmkFg_1t8ibxNm';

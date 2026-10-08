@@ -228,7 +228,7 @@ export function BatchScreen() {
 
 export function HistoryScreen() {
   const { data, fm } = useStore();
-  const days = data.history;
+  const days = data.history.filter((d) => d.fecha <= todayKey());
   return (
     <div className="screen">
       {days.length === 0 && <div className="empty">Aún no hay días registrados. Elige comidas en Inicio.</div>}

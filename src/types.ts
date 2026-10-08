@@ -88,6 +88,8 @@ export interface Food {
   notaVerificacion?: string;
   aviso?: string;
   foto?: string;
+  /** EAN/UPC del producto (escáner) */
+  codigoBarras?: string;
   archivado?: boolean;
   /** true si el usuario lo ha creado/duplicado */
   personalizado?: boolean;
@@ -196,13 +198,36 @@ export interface Settings {
   mostrarFibraSal: boolean;
 }
 
+/** Estado de sincronización en la nube (por dispositivo) */
+export interface SyncState {
+  /** clave secreta del hogar: quien la conoce puede leer/escribir los datos compartidos */
+  household?: string;
+  /** configuración de Supabase introducida en la app (si no, se usa la de src/sync/config.ts) */
+  url?: string;
+  anonKey?: string;
+  /** "tipo:id" → marca de tiempo de la última modificación conocida */
+  stamps: Record<string, number>;
+  /** "tipo:id" → marca de tiempo del borrado */
+  tombstones: Record<string, number>;
+  /** claves modificadas en este dispositivo pendientes de subir */
+  pending: string[];
+  /** cursor de descarga (server_ts del servidor) */
+  cursor?: string;
+  lastSync?: number;
+  lastError?: string;
+}
+
 export interface AppData {
   version: number;
   foods: Food[];
   conversions: CookingConversion[];
   profiles: Record<ProfileId, Profile>;
   favorites: Favorite[];
+  /** días registrados y planificados (fechas pasadas y futuras) */
   history: DayLog[];
   pantry: string[];
+  /** ids de alimentos marcados en la lista de la compra */
+  shoppingChecked: string[];
   settings: Settings;
+  sync: SyncState;
 }

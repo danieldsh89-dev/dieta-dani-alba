@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, SEED_PROFILES } from '../data/profiles';
 import { SEED_FAVORITES } from '../data/seedMeals';
 import { servingToBase, toConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap } from '../lib/nutrition';
+import { emptySync } from '../sync/docs';
 
 export const DATA_VERSION = 1;
 
@@ -45,7 +46,9 @@ export function createSeedData(): AppData {
     favorites: buildSeedFavorites(),
     history: [],
     pantry: [],
+    shoppingChecked: [],
     settings: { ...DEFAULT_SETTINGS },
+    sync: emptySync(),
   };
 }
 
@@ -60,6 +63,8 @@ export function mergeWithSeed(saved: AppData): AppData {
     foods: [...saved.foods, ...seed.foods.filter((f) => !foodIds.has(f.id))],
     conversions: [...saved.conversions, ...seed.conversions.filter((c) => !convIds.has(c.id))],
     settings: { ...seed.settings, ...saved.settings },
+    shoppingChecked: saved.shoppingChecked ?? [],
+    sync: { ...emptySync(), ...saved.sync },
     profiles: {
       dani: { ...seed.profiles.dani, ...saved.profiles?.dani },
       alba: { ...seed.profiles.alba, ...saved.profiles?.alba },

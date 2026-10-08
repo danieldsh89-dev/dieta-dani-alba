@@ -152,3 +152,36 @@ Requisitos (ya instalados en este PC): JDK 17 en `C:\Users\Usuario\.jdks`, Andro
 - **Firma — IMPORTANTE**: `android/app/dieta-release.jks` + `android/keystore.properties` (no se suben a git).
   Guarda una copia: sin ellos no se pueden instalar actualizaciones encima (habría que desinstalar y se perderían los datos).
 - Los datos del APK y los de la versión web instalada desde Chrome están separados.
+
+
+---
+
+## Novedades v1.1
+
+### 📅 Plan semanal, 🛒 lista de la compra y 🍲 cocinar en tanda (pestaña **Plan**)
+- **Semana**: planifica A/B/C de cada día (generar, favorito, comida libre), copia días o la semana anterior.
+  Desde el generador y los favoritos: botón **📅 Al plan…**.
+- **Compra**: suma las cantidades de Dani y Alba de las comidas planificadas en el rango elegido, en peso de compra
+  (crudo/seco/congelado; huevos y pan en unidades). Marca lo comprado, compártelo por WhatsApp o pásalo a la despensa.
+- **Cocinar**: qué cocinar de una vez (p. ej. "1.050 g de pollo crudo → ≈790 g") y en cuántos tápers. Al pesar la tanda
+  cocinada reparte el peso real en cada táper y ofrece guardar el rendimiento real como factor.
+
+### 📷 Escáner de códigos de barras (Alimentos → 📷)
+Lee el EAN con la cámara (o escríbelo) y busca el producto en [Open Food Facts](https://world.openfoodfacts.org).
+Rellena nombre, marca, kcal, macros, fibra, sal y foto, marcado como **"Aproximado – revisar etiqueta"**.
+Si ya lo tenías, abre su ficha. Necesita internet solo para la búsqueda.
+
+### ☁️ Sincronización entre móviles (Más → Sincronizar)
+Comparte automáticamente favoritos, alimentos, plan, despensa, lista de la compra, perfiles y factores de cocción.
+Si los dos cambian lo mismo, gana el cambio más reciente. Funciona sin conexión y sincroniza al volver.
+
+**Puesta en marcha (una sola vez, ~10 min):**
+1. Crea una cuenta gratuita en https://supabase.com y un proyecto nuevo (región: Europa).
+2. En el proyecto: **SQL Editor → New query**, pega el contenido de [`supabase/setup.sql`](supabase/setup.sql) y pulsa **Run**.
+3. **Project Settings → API**: copia la **Project URL** y la **anon / publishable key**.
+4. En el primer móvil: Más → Sincronizar → pega los dos datos → **Guardar servidor** → **Crear hogar**.
+   (O pásamelos y los dejo incorporados en la app: la anon key está pensada para ir en apps públicas.)
+5. **Compartir código** → en el otro móvil: Más → Sincronizar → pegar → **Unirme a este hogar**.
+
+Seguridad: la tabla no es accesible directamente (RLS activado, sin políticas); solo mediante dos funciones que exigen
+la clave secreta del hogar (24 caracteres aleatorios). Quien tenga el código del hogar puede ver y cambiar los datos.

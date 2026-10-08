@@ -4,6 +4,8 @@ import { useStore } from '../store/AppStore';
 import { adjustMeal, type GeneratedOption } from '../lib/mealGenerator';
 import { MealEditor } from './MealEditor';
 import { NameSheet } from './NameSheet';
+import { DateSheet } from './DateSheet';
+import { formatDay } from '../lib/planning';
 
 export function OptionCard({
   option,
@@ -13,6 +15,7 @@ export function OptionCard({
   onChange,
   onRegenerate,
   onUse,
+  useLabel,
   onToast,
 }: {
   option: GeneratedOption;
@@ -22,9 +25,11 @@ export function OptionCard({
   onChange: (o: GeneratedOption) => void;
   onRegenerate?: () => void;
   onUse: (meal: Meal) => void;
+  useLabel?: string;
   onToast: (t: string) => void;
 }) {
-  const { genCtx, addFavorite } = useStore();
+  const { genCtx, addFavorite, setDaySlot } = useStore();
+  const [planning, setPlanning] = useState(false);
   const [subst, setSubst] = useState<Category | null>(null);
   const [saving, setSaving] = useState(false);
   const meal = option.meal;
@@ -66,7 +71,10 @@ export function OptionCard({
           ★ Guardar
         </button>
         <button className="btn soft small" onClick={() => onUse(meal)}>
-          ✓ Usar hoy ({meal.bloque})
+          ✓ {useLabel ?? `Usar hoy (${meal.bloque})`}
+        </button>
+        <button className="btn small" onClick={() => setPlanning(true)}>
+          📅 Al plan…
         </button>
         <button className="btn small" onClick={() => setSubst('hidrato')}>
           ⇄ Cambiar hidrato
@@ -86,6 +94,18 @@ export function OptionCard({
           </button>
         )}
       </div>
+      {planning && (
+        <DateSheet
+          title={`Añadir al plan (${meal.bloque})`}
+          note="Se pondrá en el bloque de este día (sustituye lo que hubiera)."
+          onClose={() => setPlanning(false)}
+          onPick={(d) => {
+            setDaySlot(meal.bloque, { meal: { ...meal, origen: 'generador' } }, d);
+            setPlanning(false);
+            onToast(`Planificada: ${formatDay(d)} · ${meal.bloque}`);
+          }}
+        />
+      )}
       {saving && (
         <NameSheet
           title="Guardar en favoritos"

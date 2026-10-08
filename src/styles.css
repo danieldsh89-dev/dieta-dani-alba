@@ -134,12 +134,14 @@ h4 {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--muted);
   cursor: pointer;
+  min-width: 0;
+  padding: 0 2px;
 }
 .bottomnav button .ico {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   line-height: 1;
 }
 .bottomnav button.active {
@@ -233,6 +235,7 @@ hr {
   justify-content: center;
   gap: 6px;
   min-height: 40px;
+  white-space: nowrap;
 }
 .btn:active {
   transform: scale(0.98);

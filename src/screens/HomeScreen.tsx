@@ -209,7 +209,7 @@ export function FavoritePickSheet({ block, onPick, onClose }: { block: Block; on
   );
 }
 
-function FreeMealSheet({ initial, onSave, onClose }: { initial?: FreeMeal; onSave: (f: FreeMeal) => void; onClose: () => void }) {
+export function FreeMealSheet({ initial, onSave, onClose }: { initial?: FreeMeal; onSave: (f: FreeMeal) => void; onClose: () => void }) {
   const { data } = useStore();
   const [desc, setDesc] = useState(initial?.descripcion ?? '');
   const [kcal, setKcal] = useState<Partial<Record<ProfileId, number>>>(initial?.kcalEstimadas ?? {});

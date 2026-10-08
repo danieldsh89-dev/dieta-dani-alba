@@ -7,6 +7,8 @@ import { targetsFor, reoptimizeMeal } from '../lib/mealGenerator';
 import { MealEditor } from '../components/MealEditor';
 import { NameSheet } from '../components/NameSheet';
 import { Segmented, Sheet } from '../components/ui';
+import { DateSheet } from '../components/DateSheet';
+import { formatDay } from '../lib/planning';
 
 export function FavoritesScreen({ onToast }: { onToast: (t: string) => void }) {
   const { data } = useStore();
@@ -55,6 +57,7 @@ function FavoriteDetail({ fav, onClose, onToast }: { fav: Favorite; onClose: () 
   const [meal, setMeal] = useState<Favorite>(fav);
   const [renaming, setRenaming] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [planning, setPlanning] = useState(false);
   const targets = targetsFor(meal.bloque, data.profiles);
   const dirty = JSON.stringify(meal) !== JSON.stringify(fav);
 
@@ -89,6 +92,9 @@ function FavoriteDetail({ fav, onClose, onToast }: { fav: Favorite; onClose: () 
           }}
         >
           ✓ Usar hoy ({meal.bloque})
+        </button>
+        <button className="btn small" onClick={() => setPlanning(true)}>
+          📅 Al plan…
         </button>
         <button
           className="btn small"
@@ -126,6 +132,17 @@ function FavoriteDetail({ fav, onClose, onToast }: { fav: Favorite; onClose: () 
             </button>
           </div>
         </div>
+      )}
+      {planning && (
+        <DateSheet
+          title={`Añadir al plan (${meal.bloque})`}
+          onClose={() => setPlanning(false)}
+          onPick={(d) => {
+            setDaySlot(meal.bloque, { meal: { ...meal, id: `${meal.id}_${Date.now().toString(36)}`, origen: 'favorito' } }, d);
+            setPlanning(false);
+            onToast(`Planificada: ${formatDay(d)} · ${meal.bloque}`);
+          }}
+        />
       )}
       {renaming && (
         <NameSheet

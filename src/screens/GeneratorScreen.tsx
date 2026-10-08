@@ -4,6 +4,7 @@ import { BLOCKS } from '../types';
 import { useStore } from '../store/AppStore';
 import { generateMeals, STYLE_LABELS, targetsFor, type GeneratedOption, type GeneratorRequest, type Style } from '../lib/mealGenerator';
 import { compensatedTargets, todayKey } from '../lib/day';
+import { formatDay } from '../lib/planning';
 import { FoodSelector } from '../components/FoodPicker';
 import { OptionCard } from '../components/OptionCard';
 import { Segmented, Warnings } from '../components/ui';
@@ -17,6 +18,8 @@ const BLOCK_DESC: Record<Block, string> = {
 export interface GeneratorPreset {
   bloque?: Block;
   modo?: 'generador' | 'casa';
+  /** día del plan al que se añadirá la comida (por defecto hoy) */
+  fecha?: string;
 }
 
 export function GeneratorScreen({
@@ -42,7 +45,10 @@ export function GeneratorScreen({
   const [avisos, setAvisos] = useState<string[]>([]);
   const [shown, setShown] = useState<string[]>([]);
 
-  const today = getDay(todayKey());
+  const fecha = preset?.fecha ?? todayKey();
+  const isToday = fecha === todayKey();
+  const fechaText = isToday ? 'hoy' : formatDay(fecha, { weekday: 'long', day: 'numeric' });
+  const today = getDay(fecha);
   const objetivos = useMemo(() => compensatedTargets(today, bloque, data.profiles, fm), [today, bloque, data.profiles, fm]);
   const targets = useMemo(() => targetsFor(bloque, data.profiles, objetivos), [bloque, data.profiles, objetivos]);
 
@@ -86,8 +92,8 @@ export function GeneratorScreen({
   };
 
   const use = (meal: Meal) => {
-    setDaySlot(meal.bloque, { meal: { ...meal, origen: 'generador' } });
-    onToast(`Añadida como comida ${meal.bloque} de hoy`);
+    setDaySlot(meal.bloque, { meal: { ...meal, origen: 'generador' } }, fecha);
+    onToast(`Añadida como ${meal.bloque} de ${fechaText}`);
     onUsed();
   };
 
@@ -122,6 +128,11 @@ export function GeneratorScreen({
             setOpciones(null);
           }}
         />
+        {!isToday && (
+          <div className="badge warn" style={{ alignSelf: 'flex-start' }}>
+            📅 Planificando para el {fechaText}
+          </div>
+        )}
         <div className="sub">
           {BLOCK_DESC[bloque]} · Objetivo: <span className="dani">Dani {targets.dani.kcal}±{targets.dani.tolerancia}</span> ·{' '}
           <span className="alba">Alba {targets.alba.kcal}±{targets.alba.tolerancia}</span> kcal
@@ -214,6 +225,7 @@ export function GeneratorScreen({
               onChange={(n) => setOpciones((prev) => prev && prev.map((x, j) => (j === i ? n : x)))}
               onRegenerate={() => regenerateOne(i)}
               onUse={use}
+              useLabel={isToday ? `Usar hoy (${bloque})` : `Poner el ${formatDay(fecha, { weekday: 'short', day: 'numeric' })} (${bloque})`}
               onToast={onToast}
             />
           ))}

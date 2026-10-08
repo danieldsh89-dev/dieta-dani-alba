@@ -5,6 +5,8 @@ import { newId, useStore } from '../store/AppStore';
 import { validateFood } from '../lib/validation';
 import { kcalFromMacros } from '../lib/nutrition';
 import { normalize } from '../components/FoodPicker';
+import { BarcodeScanner } from '../components/BarcodeScanner';
+import { lookupBarcode } from '../lib/openFoodFacts';
 import { CATEGORY_ICONS, CATEGORY_LABELS, NumberInput, Sheet, VerificationBadge, Warnings } from '../components/ui';
 
 const CATS = Object.keys(CATEGORY_LABELS) as Category[];
@@ -54,13 +56,44 @@ export function FoodsScreen({ onToast }: { onToast: (t: string) => void }) {
   const [cat, setCat] = useState<Category | 'todas'>('todas');
   const [archived, setArchived] = useState(false);
   const [editing, setEditing] = useState<Food | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [looking, setLooking] = useState(false);
+
+  const onCode = async (code: string) => {
+    setScanning(false);
+    const existing = data.foods.find((f) => f.codigoBarras === code);
+    if (existing) {
+      onToast('Ya está en tu base de alimentos');
+      setEditing(existing);
+      return;
+    }
+    setLooking(true);
+    const r = await lookupBarcode(code);
+    setLooking(false);
+    if (r.status === 'found') {
+      const food: Food = { ...newFood(), ...r.food, tags: r.food.tags ?? [] };
+      if (r.imageUrl) {
+        try {
+          const blob = await (await fetch(r.imageUrl)).blob();
+          food.foto = await resizeImage(blob);
+        } catch {
+          /* sin foto */
+        }
+      }
+      onToast('Producto encontrado: revisa los valores y guarda');
+      setEditing(food);
+    } else {
+      onToast(r.status === 'not_found' ? 'No está en Open Food Facts: rellénalo con la etiqueta' : `${r.message}: rellénalo a mano`);
+      setEditing({ ...newFood(), codigoBarras: code });
+    }
+  };
 
   const list = useMemo(() => {
     const nq = normalize(q);
     return data.foods
       .filter((f) => !!f.archivado === archived)
       .filter((f) => cat === 'todas' || f.categoria === cat)
-      .filter((f) => !nq || normalize(`${f.nombre} ${f.marca ?? ''}`).includes(nq))
+      .filter((f) => !nq || normalize(`${f.nombre} ${f.marca ?? ''} ${f.codigoBarras ?? ''}`).includes(nq))
       .sort((a, b) => CATS.indexOf(a.categoria) - CATS.indexOf(b.categoria) || a.nombre.localeCompare(b.nombre));
   }, [data.foods, q, cat, archived]);
 
@@ -68,10 +101,15 @@ export function FoodsScreen({ onToast }: { onToast: (t: string) => void }) {
     <div className="screen">
       <div className="row">
         <input type="search" placeholder="Buscar alimento o marca…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <button className="btn" onClick={() => setScanning(true)} disabled={looking} aria-label="Escanear código de barras">
+          {looking ? '⏳' : '📷'}
+        </button>
         <button className="btn primary" onClick={() => setEditing(newFood())}>
           ＋ Nuevo
         </button>
       </div>
+      {looking && <div className="sub">Buscando el producto en Open Food Facts…</div>}
+      {scanning && <BarcodeScanner onDetected={onCode} onClose={() => setScanning(false)} />}
       <div className="chips">
         <button className={`chip ${cat === 'todas' ? 'on' : ''}`} onClick={() => setCat('todas')}>
           Todas
@@ -109,7 +147,7 @@ export function FoodsScreen({ onToast }: { onToast: (t: string) => void }) {
   );
 }
 
-async function resizeImage(file: File, size = 256): Promise<string> {
+async function resizeImage(file: Blob, size = 256): Promise<string> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((res, rej) => {
@@ -188,7 +226,7 @@ function FoodForm({
           </button>
         )}
       </div>
-      {!isNew && (
+      {(!isNew || f.notaVerificacion) && (
         <div className="row wrap">
           <VerificationBadge food={f} />
           {f.notaVerificacion && <span className="tiny muted">{f.notaVerificacion}</span>}
@@ -214,6 +252,10 @@ function FoodForm({
           </select>
         </label>
       </div>
+      <label className="field">
+        Código de barras
+        <input type="text" inputMode="numeric" value={f.codigoBarras ?? ''} onChange={(e) => set('codigoBarras', e.target.value.replace(/\D/g, '') || undefined)} placeholder="Opcional (se rellena al escanear)" />
+      </label>
       <div className="sub">Valores por 100 {f.unidadBase === 'ml' ? 'ml' : 'g'}</div>
       <div className="grid3">
         <label className="field">

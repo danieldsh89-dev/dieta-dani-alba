@@ -17,8 +17,13 @@ import { toConversionMap, type ConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap, type FoodMap } from '../lib/nutrition';
 import type { GeneratorContext } from '../lib/mealGenerator';
 import { todayKey } from '../lib/day';
+import { allKnownKeys, key, tombstone, touch } from '../sync/docs';
+import { isSyncEnabled, syncOnce } from '../sync/engine';
+import type { CloudConfig } from '../sync/supabase';
 import { LocalStorageRepository, type DataRepository } from './repository';
 import { createSeedData, mergeWithSeed } from './seed';
+
+export type SyncStatus = 'off' | 'idle' | 'syncing' | 'error' | 'offline';
 
 interface Store {
   data: AppData;
@@ -38,9 +43,17 @@ interface Store {
   getDay: (fecha?: string) => DayLog | undefined;
   setDaySlot: (block: Block, slot: DaySlot | undefined, fecha?: string) => void;
   setCompensar: (value: boolean, fecha?: string) => void;
+  copyDay: (from: string, to: string) => void;
   setPantry: (ids: string[]) => void;
+  setShoppingChecked: (ids: string[]) => void;
   importData: (json: string) => void;
   resetData: () => void;
+  // sincronización
+  syncStatus: SyncStatus;
+  syncNow: () => Promise<void>;
+  configureCloud: (cfg: CloudConfig | null) => void;
+  joinHousehold: (household: string, cfg?: CloudConfig) => void;
+  leaveHousehold: () => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -56,8 +69,12 @@ export function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
+const SHARED_SETTINGS: (keyof Settings)[] = ['mismaRecetaParaAmbos', 'permitirComplementosDistintos'];
+
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const first = useRef(true);
 
   useEffect(() => {
@@ -79,38 +96,48 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const saveFood = useCallback((food: Food) => {
     setData((d) => {
       const exists = d.foods.some((f) => f.id === food.id);
-      return { ...d, foods: exists ? d.foods.map((f) => (f.id === food.id ? food : f)) : [...d.foods, food] };
+      const foods = exists ? d.foods.map((f) => (f.id === food.id ? food : f)) : [...d.foods, food];
+      return touch({ ...d, foods }, [key('food', food.id)]);
     });
   }, []);
 
-  const duplicateFood = useCallback(
-    (id: string) => {
-      const src = data.foods.find((f) => f.id === id);
-      if (!src) return undefined;
-      const copy: Food = { ...structuredClone(src), id: newId('food'), nombre: `${src.nombre} (copia)`, personalizado: true, archivado: false };
-      setData((d) => ({ ...d, foods: [...d.foods, copy] }));
-      return copy;
-    },
-    [data.foods],
-  );
+  const duplicateFood = useCallback((id: string) => {
+    const src = dataRef.current.foods.find((f) => f.id === id);
+    if (!src) return undefined;
+    const copy: Food = {
+      ...structuredClone(src),
+      id: newId('food'),
+      nombre: `${src.nombre} (copia)`,
+      codigoBarras: undefined,
+      personalizado: true,
+      archivado: false,
+    };
+    setData((d) => touch({ ...d, foods: [...d.foods, copy] }, [key('food', copy.id)]));
+    return copy;
+  }, []);
 
   const setArchived = useCallback((id: string, archivado: boolean) => {
-    setData((d) => ({ ...d, foods: d.foods.map((f) => (f.id === id ? { ...f, archivado } : f)) }));
+    setData((d) => touch({ ...d, foods: d.foods.map((f) => (f.id === id ? { ...f, archivado } : f)) }, [key('food', id)]));
   }, []);
 
   const saveConversion = useCallback((c: CookingConversion) => {
     setData((d) => {
       const exists = d.conversions.some((x) => x.id === c.id);
-      return { ...d, conversions: exists ? d.conversions.map((x) => (x.id === c.id ? c : x)) : [...d.conversions, c] };
+      const conversions = exists ? d.conversions.map((x) => (x.id === c.id ? c : x)) : [...d.conversions, c];
+      return touch({ ...d, conversions }, [key('conv', c.id)]);
     });
   }, []);
 
   const saveProfile = useCallback((p: Profile) => {
-    setData((d) => ({ ...d, profiles: { ...d.profiles, [p.id]: p } }));
+    setData((d) => touch({ ...d, profiles: { ...d.profiles, [p.id]: p } }, [key('profile', p.id)]));
   }, []);
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
-    setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
+    setData((d) => {
+      const next = { ...d, settings: { ...d.settings, ...patch } };
+      const shared = (Object.keys(patch) as (keyof Settings)[]).some((k) => SHARED_SETTINGS.includes(k));
+      return shared ? touch(next, [key('shared', 'all')]) : next;
+    });
   }, []);
 
   const addFavorite = useCallback(
@@ -123,7 +150,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         creado: new Date().toISOString(),
         totales,
       };
-      setData((d) => ({ ...d, favorites: [fav, ...d.favorites] }));
+      setData((d) => touch({ ...d, favorites: [fav, ...d.favorites] }, [key('fav', fav.id)]));
       return fav;
     },
     [fm],
@@ -132,13 +159,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const updateFavorite = useCallback(
     (fav: Favorite) => {
       const totales = Object.fromEntries(PROFILE_IDS.map((p) => [p, mealNutrients(fav, p, fm)])) as Favorite['totales'];
-      setData((d) => ({ ...d, favorites: d.favorites.map((f) => (f.id === fav.id ? { ...fav, totales } : f)) }));
+      setData((d) =>
+        touch({ ...d, favorites: d.favorites.map((f) => (f.id === fav.id ? { ...fav, totales } : f)) }, [key('fav', fav.id)]),
+      );
     },
     [fm],
   );
 
   const removeFavorite = useCallback((id: string) => {
-    setData((d) => ({ ...d, favorites: d.favorites.filter((f) => f.id !== id) }));
+    setData((d) => tombstone({ ...d, favorites: d.favorites.filter((f) => f.id !== id) }, [key('fav', id)]));
   }, []);
 
   const getDay = useCallback(
@@ -153,7 +182,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     const keep = Object.keys(updated.bloques).length > 0 || updated.compensar;
     const history = keep ? [...others, updated] : others;
     history.sort((a, b) => b.fecha.localeCompare(a.fecha));
-    return { ...d, history };
+    const next = { ...d, history };
+    return keep ? touch(next, [key('day', fecha)]) : tombstone(next, [key('day', fecha)]);
   };
 
   const setDaySlot = useCallback((block: Block, slot: DaySlot | undefined, fecha = todayKey()) => {
@@ -170,17 +200,144 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setData((d) => updateDay(d, fecha, (day) => ({ ...day, compensar: value })));
   }, []);
 
-  const setPantry = useCallback((ids: string[]) => setData((d) => ({ ...d, pantry: ids })), []);
+  const copyDay = useCallback((from: string, to: string) => {
+    setData((d) => {
+      const src = d.history.find((h) => h.fecha === from);
+      if (!src || from === to) return d;
+      return updateDay(d, to, () => ({ ...structuredClone(src), fecha: to, compensar: false }));
+    });
+  }, []);
+
+  const setPantry = useCallback(
+    (ids: string[]) => setData((d) => touch({ ...d, pantry: ids }, [key('pantry', 'all')])),
+    [],
+  );
+
+  const setShoppingChecked = useCallback(
+    (ids: string[]) => setData((d) => touch({ ...d, shoppingChecked: ids }, [key('shopping', 'all')])),
+    [],
+  );
 
   const importData = useCallback((json: string) => {
     const parsed = JSON.parse(json) as AppData;
     if (!parsed || !Array.isArray(parsed.foods) || !parsed.profiles) throw new Error('Archivo no válido');
-    setData(mergeWithSeed(parsed));
+    setData((d) => {
+      const merged = mergeWithSeed(parsed);
+      // conservar la configuración de sincronización de este móvil y subir lo importado
+      const next: AppData = { ...merged, sync: { ...d.sync, stamps: {}, tombstones: {}, pending: [] } };
+      const keys = [
+        ...next.foods.map((f) => key('food', f.id)),
+        ...next.conversions.map((c) => key('conv', c.id)),
+        ...PROFILE_IDS.map((p) => key('profile', p)),
+        ...next.favorites.map((f) => key('fav', f.id)),
+        ...next.history.map((h) => key('day', h.fecha)),
+        key('pantry', 'all'),
+        key('shared', 'all'),
+      ];
+      return touch(next, keys);
+    });
   }, []);
 
   const resetData = useCallback(() => {
     repo.clear();
-    setData(createSeedData());
+    setData((d) => {
+      const seed = createSeedData();
+      // si está sincronizado, vuelve a descargar todo lo compartido
+      return { ...seed, sync: { ...seed.sync, household: d.sync.household, url: d.sync.url, anonKey: d.sync.anonKey } };
+    });
+  }, []);
+
+  // ───────── sincronización automática ─────────
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(isSyncEnabled(data) ? 'idle' : 'off');
+  const busy = useRef(false);
+  const again = useRef(false);
+  const enabled = isSyncEnabled(data);
+
+  const syncNow = useCallback(async () => {
+    if (!isSyncEnabled(dataRef.current)) {
+      setSyncStatus('off');
+      return;
+    }
+    if (busy.current) {
+      again.current = true;
+      return;
+    }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setSyncStatus('offline');
+      return;
+    }
+    busy.current = true;
+    setSyncStatus('syncing');
+    try {
+      do {
+        again.current = false;
+        await syncOnce(
+          () => dataRef.current,
+          (fn) =>
+            setData((d) => {
+              const n = fn(d);
+              dataRef.current = n;
+              return n;
+            }),
+        );
+      } while (again.current);
+      setSyncStatus('idle');
+    } catch (e) {
+      const msg = (e as Error).message || 'Error de sincronización';
+      setData((d) => ({ ...d, sync: { ...d.sync, lastError: msg } }));
+      setSyncStatus(navigator.onLine === false ? 'offline' : 'error');
+    } finally {
+      busy.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) {
+      setSyncStatus('off');
+      return;
+    }
+    syncNow();
+    const iv = setInterval(syncNow, 30000);
+    const onVis = () => document.visibilityState === 'visible' && syncNow();
+    window.addEventListener('online', syncNow);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(iv);
+      window.removeEventListener('online', syncNow);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [enabled, data.sync.household, syncNow]);
+
+  // subir cambios locales poco después de hacerlos
+  const pendingCount = data.sync.pending.length;
+  useEffect(() => {
+    if (!enabled || pendingCount === 0) return;
+    const t = setTimeout(syncNow, 1500);
+    return () => clearTimeout(t);
+  }, [enabled, pendingCount, data.sync.stamps, syncNow]);
+
+  const configureCloud = useCallback((cfg: CloudConfig | null) => {
+    setData((d) => ({ ...d, sync: { ...d.sync, url: cfg?.url || undefined, anonKey: cfg?.anonKey || undefined, lastError: undefined } }));
+  }, []);
+
+  const joinHousehold = useCallback((household: string, cfg?: CloudConfig) => {
+    setData((d) => ({
+      ...d,
+      sync: {
+        ...d.sync,
+        household,
+        url: cfg?.url ?? d.sync.url,
+        anonKey: cfg?.anonKey ?? d.sync.anonKey,
+        cursor: undefined,
+        lastError: undefined,
+        // subir todo lo que este móvil ha cambiado alguna vez, para fusionarlo con el otro
+        pending: allKnownKeys(d),
+      },
+    }));
+  }, []);
+
+  const leaveHousehold = useCallback(() => {
+    setData((d) => ({ ...d, sync: { ...d.sync, household: undefined, cursor: undefined, lastSync: undefined, lastError: undefined } }));
   }, []);
 
   const value: Store = {
@@ -201,9 +358,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     getDay,
     setDaySlot,
     setCompensar,
+    copyDay,
     setPantry,
+    setShoppingChecked,
     importData,
     resetData,
+    syncStatus,
+    syncNow,
+    configureCloud,
+    joinHousehold,
+    leaveHousehold,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

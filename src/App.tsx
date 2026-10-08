@@ -7,12 +7,16 @@ import { FoodsScreen } from './screens/FoodsScreen';
 import { FavoritesScreen } from './screens/FavoritesScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { BatchScreen, ConversionsScreen, DataScreen, HistoryScreen } from './screens/ToolsScreens';
+import { PlanScreen } from './screens/PlanScreen';
+import { SyncScreen } from './screens/SyncScreen';
+import { useStore } from './store/AppStore';
 
-type Tab = 'inicio' | 'generar' | 'alimentos' | 'favoritos' | 'mas';
-type MoreView = 'menu' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
+type Tab = 'inicio' | 'plan' | 'generar' | 'alimentos' | 'favoritos' | 'mas';
+type MoreView = 'menu' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
 
 const TABS: { id: Tab; label: string; ico: string }[] = [
-  { id: 'inicio', label: 'Inicio', ico: '🏠' },
+  { id: 'inicio', label: 'Hoy', ico: '🏠' },
+  { id: 'plan', label: 'Plan', ico: '📅' },
   { id: 'generar', label: 'Generar', ico: '⚙️' },
   { id: 'alimentos', label: 'Alimentos', ico: '🥕' },
   { id: 'favoritos', label: 'Favoritos', ico: '★' },
@@ -20,15 +24,20 @@ const TABS: { id: Tab; label: string; ico: string }[] = [
 ];
 
 const MORE_ITEMS: { id: Exclude<MoreView, 'menu'>; ico: string; title: string; sub: string }[] = [
+  { id: 'sync', ico: '☁️', title: 'Sincronizar', sub: 'Compartir datos entre los móviles de Dani y Alba' },
   { id: 'config', ico: '👥', title: 'Configuración', sub: 'Perfiles, objetivos A/B/C, misma receta' },
   { id: 'conversiones', ico: '⚖️', title: 'Crudo / cocinado', sub: 'Factores de cocción y calibrar' },
-  { id: 'tanda', ico: '🍲', title: 'Repartir tanda', sub: 'Batch cooking: rendimiento y raciones' },
+  { id: 'tanda', ico: '🍲', title: 'Repartir tanda manual', sub: 'Rendimiento y raciones de una tanda suelta (desde el plan: Plan → Cocinar)' },
   { id: 'historial', ico: '📅', title: 'Historial', sub: 'Días registrados y totales' },
   { id: 'datos', ico: '💾', title: 'Datos', sub: 'Exportar, importar, restablecer' },
 ];
 
+const SYNC_ICON = { off: '', idle: '☁️', syncing: '🔄', error: '⚠️', offline: '📴' } as const;
+
 export default function App() {
+  const { syncStatus } = useStore();
   const [tab, setTab] = useState<Tab>('inicio');
+  const [returnTo, setReturnTo] = useState<Tab>('inicio');
   const [more, setMore] = useState<MoreView>('menu');
   const [preset, setPreset] = useState<GeneratorPreset | undefined>();
   const [genKey, setGenKey] = useState(0);
@@ -36,8 +45,9 @@ export default function App() {
   const showToast = useCallback((t: string) => setToast(t), []);
   const clearToast = useCallback(() => setToast(null), []);
 
-  const goGenerate = (b: Block) => {
-    setPreset({ bloque: b });
+  const goGenerate = (b: Block, fecha?: string) => {
+    setReturnTo(tab);
+    setPreset({ bloque: b, fecha });
     setGenKey((k) => k + 1);
     setTab('generar');
     window.scrollTo(0, 0);
@@ -47,7 +57,9 @@ export default function App() {
   const title =
     tab === 'inicio'
       ? 'Dieta Dani & Alba'
-      : tab === 'generar'
+      : tab === 'plan'
+        ? 'Plan semanal'
+        : tab === 'generar'
         ? 'Generador A/B/C'
         : tab === 'alimentos'
           ? 'Alimentos'
@@ -66,12 +78,28 @@ export default function App() {
           )}
           <h1>{title}</h1>
         </div>
-        <WeightToggle />
+        <div className="row" style={{ gap: 6 }}>
+          {syncStatus !== 'off' && (
+            <button
+              className="iconbtn"
+              style={{ border: 'none', background: 'none' }}
+              title="Sincronización"
+              onClick={() => {
+                setTab('mas');
+                setMore('sync');
+              }}
+            >
+              {SYNC_ICON[syncStatus]}
+            </button>
+          )}
+          <WeightToggle />
+        </div>
       </header>
 
-      {tab === 'inicio' && <HomeScreen onGenerate={goGenerate} onToast={showToast} />}
+      {tab === 'inicio' && <HomeScreen onGenerate={(b) => goGenerate(b)} onToast={showToast} />}
+      {tab === 'plan' && <PlanScreen onGenerate={goGenerate} onToast={showToast} />}
       {tab === 'generar' && (
-        <GeneratorScreen key={genKey} preset={preset} onToast={showToast} onUsed={() => setTab('inicio')} />
+        <GeneratorScreen key={genKey} preset={preset} onToast={showToast} onUsed={() => setTab(returnTo === 'plan' ? 'plan' : 'inicio')} />
       )}
       {tab === 'alimentos' && <FoodsScreen onToast={showToast} />}
       {tab === 'favoritos' && <FavoritesScreen onToast={showToast} />}
@@ -91,6 +119,7 @@ export default function App() {
           </div>
         </div>
       )}
+      {tab === 'mas' && more === 'sync' && <SyncScreen onToast={showToast} />}
       {tab === 'mas' && more === 'config' && <SettingsScreen onToast={showToast} />}
       {tab === 'mas' && more === 'conversiones' && <ConversionsScreen onToast={showToast} />}
       {tab === 'mas' && more === 'tanda' && <BatchScreen />}
@@ -106,6 +135,7 @@ export default function App() {
               onClick={() => {
                 if (t.id === 'generar' && tab !== 'generar') {
                   setPreset(undefined);
+                  setReturnTo('inicio');
                 }
                 if (t.id === 'mas' && tab === 'mas') setMore('menu');
                 setTab(t.id);

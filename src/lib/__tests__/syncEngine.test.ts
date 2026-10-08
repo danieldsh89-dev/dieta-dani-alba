@@ -3,6 +3,7 @@ import type { AppData } from '../../types';
 import { createSeedData } from '../../store/seed';
 import { key, touch, tombstone } from '../../sync/docs';
 import { syncOnce } from '../../sync/engine';
+import { applyBaseline, BASELINE_CREATOR, BASELINE_JOINER, unstampedChanges } from '../../sync/baseline';
 
 /** Servidor falso que imita las funciones SQL dieta_push / dieta_pull de supabase/setup.sql */
 function fakeSupabase() {
@@ -98,5 +99,63 @@ describe('motor de sincronización contra servidor simulado', () => {
     a.set(touch({ ...a.get(), pantry: ['x'] }, [key('pantry', 'all')]));
     await expect(syncOnce(a.get, a.update)).rejects.toThrow(/500/);
     expect(a.get().sync.pending).toEqual(['pantry:all']);
+  });
+
+  it('activar la sincronización con datos de la v1.0 (sin marcas): gana el creador, se suma lo de ambos', async () => {
+    const { fetchMock } = fakeSupabase();
+    vi.stubGlobal('fetch', fetchMock);
+    const H = 'HOGARDDDDDDDDDDDDDDDDDDDDD';
+    const dani = device(H);
+    const alba = device(H);
+    const base = dani.get();
+    const meal = (nombre: string) => ({ ...base.favorites[0], id: `m_${nombre}`, nombre, origen: 'manual' as const });
+    // Datos "de la v1.0": sin stamps
+    dani.set({
+      ...dani.get(),
+      favorites: [{ ...meal('Fav de Dani'), id: 'fav_dani' }, ...base.favorites.filter((f) => f.id !== 'fav_hamburguesa')],
+      history: [
+        { fecha: '2026-10-08', bloques: { A: { meal: meal('Tostadas Dani') } } },
+        { fecha: '2026-10-09', bloques: { B: { meal: meal('Albondigas') } } },
+      ],
+      pantry: ['arroz', 'albondigas'],
+      profiles: { ...base.profiles, dani: { ...base.profiles.dani, pesoActualKg: 95 } },
+    });
+    alba.set({
+      ...alba.get(),
+      favorites: [{ ...meal('Fav de Alba'), id: 'fav_alba' }, ...base.favorites],
+      history: [
+        { fecha: '2026-10-08', bloques: { A: { meal: meal('Yogur Alba') } } },
+        { fecha: '2026-10-07', bloques: { C: { meal: meal('Cena Alba') } } },
+      ],
+      pantry: ['gazpacho'],
+    });
+    expect(unstampedChanges(alba.get()).changed).toContain('fav:fav_alba');
+    expect(unstampedChanges(dani.get()).deleted).toContain('fav:fav_hamburguesa');
+
+    dani.set(applyBaseline(dani.get(), BASELINE_CREATOR));
+    await syncOnce(dani.get, dani.update);
+    alba.set(applyBaseline(alba.get(), BASELINE_JOINER));
+    await syncOnce(alba.get, alba.update);
+    await syncOnce(dani.get, dani.update);
+
+    for (const d of [dani.get(), alba.get()]) {
+      const favIds = d.favorites.map((f) => f.id);
+      expect(favIds).toContain('fav_dani');
+      expect(favIds).toContain('fav_alba');
+      expect(favIds).not.toContain('fav_hamburguesa');
+      const day8 = d.history.find((h) => h.fecha === '2026-10-08')!;
+      expect((day8.bloques.A as { meal: { nombre: string } }).meal.nombre).toBe('Tostadas Dani'); // conflicto → gana el creador
+      expect(d.history.some((h) => h.fecha === '2026-10-07')).toBe(true); // lo de Alba se suma
+      expect(d.history.some((h) => h.fecha === '2026-10-09')).toBe(true);
+      expect(d.pantry).toEqual(['arroz', 'albondigas']);
+      expect(d.profiles.dani.pesoActualKg).toBe(95);
+      expect(d.sync.pending).toEqual([]);
+    }
+
+    // y después, un cambio nuevo de Alba gana a los datos antiguos de Dani
+    alba.set(touch({ ...alba.get(), pantry: ['pollo_pechuga'] }, [key('pantry', 'all')]));
+    await syncOnce(alba.get, alba.update);
+    await syncOnce(dani.get, dani.update);
+    expect(dani.get().pantry).toEqual(['pollo_pechuga']);
   });
 });

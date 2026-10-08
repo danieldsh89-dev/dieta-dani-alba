@@ -58,7 +58,7 @@ export function SyncScreen({ onToast }: { onToast: (t: string) => void }) {
     setError(null);
     try {
       await testConnection(cfg, h);
-      joinHousehold(h);
+      joinHousehold(h, undefined, 'creator');
       onToast('Hogar creado. Comparte el código con el otro móvil.');
     } catch (e) {
       setError(`No se pudo conectar: ${(e as Error).message}. ¿Ejecutaste supabase/setup.sql?`);
@@ -82,7 +82,7 @@ export function SyncScreen({ onToast }: { onToast: (t: string) => void }) {
     setError(null);
     try {
       await testConnection(c, parsed.household);
-      joinHousehold(parsed.household, parsed.cfg);
+      joinHousehold(parsed.household, parsed.cfg, 'joiner');
       setCode('');
       onToast('Unido al hogar. Fusionando datos…');
     } catch (e) {
@@ -151,7 +151,9 @@ export function SyncScreen({ onToast }: { onToast: (t: string) => void }) {
           {cfg && (
             <>
               <div className="sub">
-                <b>Primer móvil:</b> crea el hogar y comparte el código. <b>Segundo móvil:</b> pega ese código.
+                <b>Primer móvil:</b> crea el hogar y comparte el código. <b>Segundo móvil:</b> pega ese código. Si los dos tenéis versiones
+                distintas de lo mismo (un favorito editado, un día del plan…), gana la del móvil que crea el hogar; lo que solo tenga el otro se
+                suma.
               </div>
               <button className="btn primary" onClick={create} disabled={testing}>
                 {testing ? 'Conectando…' : '🏠 Crear hogar (primer móvil)'}

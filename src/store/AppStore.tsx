@@ -17,7 +17,8 @@ import { toConversionMap, type ConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap, type FoodMap } from '../lib/nutrition';
 import type { GeneratorContext } from '../lib/mealGenerator';
 import { todayKey } from '../lib/day';
-import { allKnownKeys, key, tombstone, touch } from '../sync/docs';
+import { key, tombstone, touch } from '../sync/docs';
+import { applyBaseline, BASELINE_CREATOR, BASELINE_JOINER } from '../sync/baseline';
 import { isSyncEnabled, syncOnce } from '../sync/engine';
 import type { CloudConfig } from '../sync/supabase';
 import { LocalStorageRepository, type DataRepository } from './repository';
@@ -52,7 +53,7 @@ interface Store {
   syncStatus: SyncStatus;
   syncNow: () => Promise<void>;
   configureCloud: (cfg: CloudConfig | null) => void;
-  joinHousehold: (household: string, cfg?: CloudConfig) => void;
+  joinHousehold: (household: string, cfg?: CloudConfig, role?: 'creator' | 'joiner') => void;
   leaveHousehold: () => void;
 }
 
@@ -320,20 +321,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setData((d) => ({ ...d, sync: { ...d.sync, url: cfg?.url || undefined, anonKey: cfg?.anonKey || undefined, lastError: undefined } }));
   }, []);
 
-  const joinHousehold = useCallback((household: string, cfg?: CloudConfig) => {
-    setData((d) => ({
-      ...d,
-      sync: {
-        ...d.sync,
-        household,
-        url: cfg?.url ?? d.sync.url,
-        anonKey: cfg?.anonKey ?? d.sync.anonKey,
-        cursor: undefined,
-        lastError: undefined,
-        // subir todo lo que este móvil ha cambiado alguna vez, para fusionarlo con el otro
-        pending: allKnownKeys(d),
-      },
-    }));
+  const joinHousehold = useCallback((household: string, cfg?: CloudConfig, role: 'creator' | 'joiner' = 'joiner') => {
+    setData((d) => {
+      const next: AppData = {
+        ...d,
+        sync: {
+          ...d.sync,
+          household,
+          url: cfg?.url ?? d.sync.url,
+          anonKey: cfg?.anonKey ?? d.sync.anonKey,
+          cursor: undefined,
+          lastError: undefined,
+        },
+      };
+      // sube todo lo que este móvil tiene distinto de los datos iniciales (incluido lo creado con la v1.0)
+      return applyBaseline(next, role === 'creator' ? BASELINE_CREATOR : BASELINE_JOINER);
+    });
   }, []);
 
   const leaveHousehold = useCallback(() => {

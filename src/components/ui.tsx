@@ -2,8 +2,14 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { BlockTarget, Food, Nutrients, ProfileId } from '../types';
 import { rangeStatus, round, type RangeStatus } from '../lib/nutrition';
 import { useStore } from '../store/AppStore';
+import { useBackHandler } from '../lib/back';
 
 export function Sheet({ title, onClose, children, actions }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode }) {
+  // botón atrás: cierra esta ventana
+  useBackHandler(() => {
+    onClose();
+    return true;
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);

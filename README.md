@@ -213,3 +213,19 @@ la clave secreta del hogar (24 caracteres aleatorios). Quien tenga el código de
 - **Vista plato**: barra de reparto de kcal (proteína / hidratos / grasa) en cada comida y en el total del día.
 - **👨‍🍳 Modo cocinar**: pantalla completa con letra grande, cantidades de Dani, Alba y **total a pesar**,
   crudo/cocinado, marcar lo ya pesado y pantalla siempre encendida.
+
+
+---
+
+## Novedades v1.3
+
+- **Días de entreno sin diferencias por defecto** (se puede activar en Configuración). Al actualizar se desactiva en los móviles que ya lo tenían.
+- **Comidas solo para una persona**: en el generador, selector **👥 Ambos | Solo Dani | Solo Alba**. En Hoy y en el Plan, un bloque puede
+  ir **partido** (cada uno su comida) con **✂️ Cada uno lo suyo** / **🔗 Juntar**. Favoritos de una sola persona con etiqueta "solo …".
+  En **Configuración → Bloques que coméis por separado** (p. ej. A) esos bloques aparecen ya partidos, y **Este móvil es de** preselecciona tu parte.
+- **✍️ Apuntar lo que comí de verdad** (menú ⋯ de cada comida): opcional; ajustas cantidades y queda marcado "✍️ real".
+- **🍌 Extras de hoy**: apunta en 2 toques algo fuera del plan; cuenta en los totales y gráficas (no en la lista de la compra).
+- **🔎 Buscar favoritos** por nombre o ingrediente y filtrar (para los dos / solo uno, sin lácteos, sin pescado, con foto). **⧉ Duplicar** favorito.
+- **📋 Semanas tipo** (Plan → Semana): guarda una semana y aplícala a otra (rellenar huecos o reemplazar).
+- **✕ Quitar ingrediente** directamente en cada fila al editar o generar.
+- **Botón atrás de Android** dentro de la app: cierra la ventana abierta, vuelve de pantalla y, en Hoy, sale.

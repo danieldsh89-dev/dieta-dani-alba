@@ -4,7 +4,7 @@
  */
 import type { DayLog, Profile, ProfileId, WeightEntry } from '../types';
 import { BLOCKS } from '../types';
-import { dayGoals, dayTotals } from './day';
+import { dayGoals, dayTotals, personSlot } from './day';
 import type { FoodMap } from './nutrition';
 import { addDays } from './planning';
 
@@ -84,9 +84,9 @@ export function dayStats(
     const day = history.find((h) => h.fecha === fecha);
     const g = dayGoals(profile, fecha, day);
     const t = dayTotals(day, fm)[profile.id];
-    const slots = BLOCKS.map((b) => day?.bloques[b]).filter(Boolean);
+    const slots = BLOCKS.map((b) => personSlot(day, b, profile.id)).filter(Boolean);
     const incompleto = slots.some((s) => s && 'libre' in s && !s.kcalEstimadas[profile.id]);
-    const registrado = slots.length > 0;
+    const registrado = slots.length > 0 || (day?.extras ?? []).some((e) => (e.cantidades[profile.id] ?? 0) > 0);
     const cumplido =
       registrado && !incompleto && Math.abs(t.kcal - g.kcalDia) <= g.kcalDia * 0.1 && t.proteina >= g.proteinaDia * 0.9;
     return {

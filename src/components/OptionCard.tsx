@@ -28,7 +28,7 @@ export function OptionCard({
   useLabel?: string;
   onToast: (t: string) => void;
 }) {
-  const { data, genCtx, addFavorite, setDaySlot, rateMeal } = useStore();
+  const { data, genCtx, addFavorite, placeMeal, rateMeal } = useStore();
   const [planning, setPlanning] = useState(false);
   const [subst, setSubst] = useState<Category | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,7 +65,9 @@ export function OptionCard({
             </button>
           </div>
         </div>
-        <h3 style={{ fontSize: '0.98rem' }}>{meal.nombre}</h3>
+        <h3 style={{ fontSize: '0.98rem' }}>
+          {meal.para && <span className={`badge ${meal.para}`}>solo {data.profiles[meal.para].nombre}</span>} {meal.nombre}
+        </h3>
         {option.plantilla && <span className="tiny muted">{option.plantilla}</span>}
       </div>
       {option.avisos
@@ -118,7 +120,7 @@ export function OptionCard({
           note="Se pondrá en el bloque de este día (sustituye lo que hubiera)."
           onClose={() => setPlanning(false)}
           onPick={(d) => {
-            setDaySlot(meal.bloque, { meal: { ...meal, origen: 'generador' } }, d);
+            placeMeal({ ...meal, origen: 'generador' }, d);
             setPlanning(false);
             onToast(`Planificada: ${formatDay(d)} · ${meal.bloque}`);
           }}

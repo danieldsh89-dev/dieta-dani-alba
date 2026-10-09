@@ -3,9 +3,9 @@
  * y una marca de tiempo. Gana la versión más reciente (last-writer-wins) por documento.
  * Funciones puras: sin red ni React (testeadas en __tests__/sync.test.ts).
  */
-import type { AppData, DayLog, Favorite, Food, CookingConversion, Profile, ProfileId, Rating, SyncState, WeightEntry } from '../types';
+import type { AppData, DayLog, Favorite, Food, CookingConversion, Profile, ProfileId, Rating, SyncState, WeekTemplate, WeightEntry } from '../types';
 
-export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating';
+export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating' | 'week';
 
 /** id del documento de peso: perfil:fecha */
 export const weightId = (w: Pick<WeightEntry, 'profile' | 'fecha'>) => `${w.profile}:${w.fecha}`;
@@ -64,6 +64,7 @@ function sharedSettings(d: AppData) {
   return {
     mismaRecetaParaAmbos: d.settings.mismaRecetaParaAmbos,
     permitirComplementosDistintos: d.settings.permitirComplementosDistintos,
+    bloquesSeparados: d.settings.bloquesSeparados ?? [],
   };
 }
 
@@ -90,6 +91,8 @@ export function readDoc(d: AppData, kind: DocKind, id: string): unknown {
       return d.pesos.find((w) => weightId(w) === id);
     case 'rating':
       return d.ratings[id];
+    case 'week':
+      return d.semanasTipo.find((w) => w.id === id);
   }
 }
 
@@ -178,6 +181,8 @@ function writeDoc(d: AppData, kind: DocKind, id: string, data: unknown): AppData
       return { ...d, pesos: upsertById(d.pesos, data as WeightEntry, weightId).sort((a, b) => a.fecha.localeCompare(b.fecha)) };
     case 'rating':
       return { ...d, ratings: { ...d.ratings, [id]: data as Rating } };
+    case 'week':
+      return { ...d, semanasTipo: upsertById(d.semanasTipo, data as WeekTemplate, (w) => w.id) };
   }
 }
 
@@ -198,6 +203,8 @@ function removeDoc(d: AppData, kind: DocKind, id: string): AppData {
       delete ratings[id];
       return { ...d, ratings };
     }
+    case 'week':
+      return { ...d, semanasTipo: d.semanasTipo.filter((w) => w.id !== id) };
     default:
       return d;
   }

@@ -12,12 +12,15 @@ import type {
   ProfileId,
   Rating,
   Settings,
+  ExtraItem,
 } from '../types';
 import { PROFILE_IDS } from '../types';
 import { toConversionMap, type ConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap, type FoodMap } from '../lib/nutrition';
 import type { GeneratorContext } from '../lib/mealGenerator';
 import { todayKey } from '../lib/day';
+import * as DE from '../lib/dayEdit';
+import { addDays } from '../lib/planning';
 import { key, tombstone, touch, weightId } from '../sync/docs';
 import { applyBaseline, BASELINE_CREATOR, BASELINE_JOINER } from '../sync/baseline';
 import { isSyncEnabled, syncOnce } from '../sync/engine';
@@ -53,6 +56,19 @@ interface Store {
   setDaySlot: (block: Block, slot: DaySlot | undefined, fecha?: string) => void;
   setCompensar: (value: boolean, fecha?: string) => void;
   copyDay: (from: string, to: string) => void;
+  /** comida solo para una persona en un bloque (separa el bloque si hacía falta) */
+  setPersonSlot: (block: Block, pid: ProfileId, slot: DaySlot | undefined, fecha?: string) => void;
+  splitBlock: (block: Block, fecha?: string) => void;
+  joinBlock: (block: Block, fecha?: string) => void;
+  /** pone una comida en el día: en la parte de una persona si `meal.para`, si no compartida */
+  placeMeal: (meal: Meal, fecha?: string) => void;
+  /** copia un bloque (compartido o separado) de un día a otro, solo si el destino está vacío o `force` */
+  copyBlockTo: (block: Block, from: string, to: string) => void;
+  addExtra: (extra: ExtraItem, fecha?: string) => void;
+  removeExtra: (id: string, fecha?: string) => void;
+  saveWeekTemplate: (nombre: string, weekStart: string) => void;
+  applyWeekTemplate: (id: string, weekStart: string, mode: 'huecos' | 'reemplazar') => void;
+  removeWeekTemplate: (id: string) => void;
   setPantry: (ids: string[]) => void;
   setShoppingChecked: (ids: string[]) => void;
   importData: (json: string) => void;
@@ -78,7 +94,7 @@ export function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
-const SHARED_SETTINGS: (keyof Settings)[] = ['mismaRecetaParaAmbos', 'permitirComplementosDistintos'];
+const SHARED_SETTINGS: (keyof Settings)[] = ['mismaRecetaParaAmbos', 'permitirComplementosDistintos', 'bloquesSeparados'];
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
@@ -233,7 +249,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     const existing = d.history.find((h) => h.fecha === fecha) ?? { fecha, bloques: {} };
     const updated = fn(structuredClone(existing));
     const others = d.history.filter((h) => h.fecha !== fecha);
-    const keep = Object.keys(updated.bloques).length > 0 || updated.compensar || !!updated.entreno;
+    const keep = DE.dayHasData(updated);
     const history = keep ? [...others, updated] : others;
     history.sort((a, b) => b.fecha.localeCompare(a.fecha));
     const next = { ...d, history };
@@ -242,11 +258,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const setDaySlot = useCallback((block: Block, slot: DaySlot | undefined, fecha = todayKey()) => {
     setData((d) =>
-      updateDay(d, fecha, (day) => {
-        if (slot) day.bloques[block] = structuredClone(slot);
-        else delete day.bloques[block];
-        return day;
-      }),
+      // comida para ambos: si el bloque estaba separado, vuelve a ser compartido
+      updateDay(d, fecha, (day) => DE.setSharedSlot(day, block, slot)),
     );
   }, []);
 
@@ -265,12 +278,72 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const setPersonSlot = useCallback((block: Block, pid: ProfileId, slot: DaySlot | undefined, fecha = todayKey()) => {
+    setData((d) => updateDay(d, fecha, (day) => DE.setPersonSlot(day, block, pid, slot)));
+  }, []);
+
+  const splitBlock = useCallback((block: Block, fecha = todayKey()) => {
+    setData((d) => updateDay(d, fecha, (day) => DE.splitBlock(day, block)));
+  }, []);
+
+  const joinBlock = useCallback((block: Block, fecha = todayKey()) => {
+    setData((d) => updateDay(d, fecha, (day) => DE.joinBlock(day, block)));
+  }, []);
+
+  const placeMeal = useCallback((meal: Meal, fecha = todayKey()) => {
+    setData((d) =>
+      updateDay(d, fecha, (day) =>
+        meal.para ? DE.setPersonSlot(day, meal.bloque, meal.para, { meal }) : DE.setSharedSlot(day, meal.bloque, { meal }),
+      ),
+    );
+  }, []);
+
+  const copyBlockTo = useCallback((block: Block, from: string, to: string) => {
+    setData((d) => {
+      const src = d.history.find((h) => h.fecha === from);
+      if (!src) return d;
+      return updateDay(d, to, (day) => DE.copyBlock(src, day, block));
+    });
+  }, []);
+
+  const addExtra = useCallback((extra: ExtraItem, fecha = todayKey()) => {
+    setData((d) => updateDay(d, fecha, (day) => DE.addExtra(day, extra)));
+  }, []);
+
+  const removeExtra = useCallback((id: string, fecha = todayKey()) => {
+    setData((d) => updateDay(d, fecha, (day) => DE.removeExtra(day, id)));
+  }, []);
+
+  const saveWeekTemplate = useCallback((nombre: string, weekStart: string) => {
+    setData((d) => {
+      const days = Array.from({ length: 7 }, (_, i) => d.history.find((h) => h.fecha === addDays(weekStart, i)));
+      const tpl = DE.makeWeekTemplate(nombre, days);
+      return touch({ ...d, semanasTipo: [...d.semanasTipo, tpl] }, [key('week', tpl.id)]);
+    });
+  }, []);
+
+  const applyWeekTemplate = useCallback((id: string, weekStart: string, mode: 'huecos' | 'reemplazar') => {
+    setData((d) => {
+      const tpl = d.semanasTipo.find((w) => w.id === id);
+      if (!tpl) return d;
+      let next = d;
+      tpl.dias.forEach((td, i) => {
+        next = updateDay(next, addDays(weekStart, i), (day) => DE.applyTemplateDay(day, td, mode));
+      });
+      return next;
+    });
+  }, []);
+
+  const removeWeekTemplate = useCallback((id: string) => {
+    setData((d) => tombstone({ ...d, semanasTipo: d.semanasTipo.filter((w) => w.id !== id) }, [key('week', id)]));
+  }, []);
+
   const copyDay = useCallback((from: string, to: string) => {
     setData((d) => {
       const src = d.history.find((h) => h.fecha === from);
       if (!src || from === to) return d;
       const target = d.history.find((h) => h.fecha === to);
-      return updateDay(d, to, () => ({ ...structuredClone(src), fecha: to, compensar: false, entreno: target?.entreno }));
+      return updateDay(d, to, () => ({ ...structuredClone(src), fecha: to, compensar: false, entreno: target?.entreno, extras: target?.extras }));
     });
   }, []);
 
@@ -299,6 +372,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ...next.history.map((h) => key('day', h.fecha)),
         ...next.pesos.map((w) => key('weight', weightId(w))),
         ...Object.keys(next.ratings).map((id) => key('rating', id)),
+        ...next.semanasTipo.map((w) => key('week', w.id)),
         key('pantry', 'all'),
         key('shared', 'all'),
       ];
@@ -434,6 +508,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setDaySlot,
     setCompensar,
     copyDay,
+    setPersonSlot,
+    splitBlock,
+    joinBlock,
+    placeMeal,
+    copyBlockTo,
+    addExtra,
+    removeExtra,
+    saveWeekTemplate,
+    applyWeekTemplate,
+    removeWeekTemplate,
     setPantry,
     setShoppingChecked,
     importData,

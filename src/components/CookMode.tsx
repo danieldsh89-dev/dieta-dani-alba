@@ -5,6 +5,7 @@ import { useStore } from '../store/AppStore';
 import { displayQuantity, stateLabel } from '../lib/conversions';
 import { shortName } from '../lib/mealGenerator';
 import { Segmented } from './ui';
+import { useBackHandler } from '../lib/back';
 
 interface WakeLockLike {
   release: () => Promise<void>;
@@ -19,6 +20,11 @@ export function CookMode({ meal, onClose }: { meal: Meal; onClose: () => void })
   const { data, fm, cm } = useStore();
   const [view, setView] = useState<WeightView>(data.settings.mostrarPesos);
   const [done, setDone] = useState<Set<number>>(new Set());
+  const cols = meal.para ? [meal.para] : PROFILE_IDS;
+  useBackHandler(() => {
+    onClose();
+    return true;
+  });
 
   useEffect(() => {
     let lock: WakeLockLike | null = null;
@@ -85,8 +91,8 @@ export function CookMode({ meal, onClose }: { meal: Meal; onClose: () => void })
               </span>
               {st && <span className="badge info">{st}</span>}
             </div>
-            <div className="cook-q">
-              {PROFILE_IDS.map((p) => (
+            <div className="cook-q" style={cols.length === 1 ? { gridTemplateColumns: '1fr' } : undefined}>
+              {cols.map((p) => (
                 <div key={p}>
                   <div className={`lbl ${p}`}>{data.profiles[p].nombre}</div>
                   <div className="val">
@@ -95,6 +101,7 @@ export function CookMode({ meal, onClose }: { meal: Meal; onClose: () => void })
                   </div>
                 </div>
               ))}
+              {cols.length > 1 && (
               <div>
                 <div className="lbl muted">Total</div>
                 <div className="val" style={{ color: 'var(--primary)' }}>
@@ -102,6 +109,7 @@ export function CookMode({ meal, onClose }: { meal: Meal; onClose: () => void })
                   <small> {unit}</small>
                 </div>
               </div>
+              )}
             </div>
           </div>
         );

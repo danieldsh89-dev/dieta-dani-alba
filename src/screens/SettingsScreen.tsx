@@ -34,6 +34,43 @@ export function SettingsScreen({ onToast }: { onToast: (t: string) => void }) {
           <input type="checkbox" checked={s.mostrarFibraSal} onChange={(e) => updateSettings({ mostrarFibraSal: e.target.checked })} />
           <b>Mostrar fibra y sal</b>
         </label>
+        <hr />
+        <div className="col" style={{ gap: 4 }}>
+          <b className="small">Bloques que coméis por separado</b>
+          <div className="sub">
+            En estos bloques cada uno elige su comida (aparecen partidos en Hoy y en el Plan). En el resto, misma receta para los dos. Siempre
+            puedes cambiarlo un día concreto con ✂️ / 🔗.
+          </div>
+          <div className="chips">
+            {BLOCKS.map((b) => {
+              const on = (s.bloquesSeparados ?? []).includes(b);
+              return (
+                <button
+                  key={b}
+                  className={`chip ${on ? 'on' : ''}`}
+                  onClick={() =>
+                    updateSettings({
+                      bloquesSeparados: on ? (s.bloquesSeparados ?? []).filter((x) => x !== b) : [...(s.bloquesSeparados ?? []), b].sort(),
+                    })
+                  }
+                >
+                  {b} {b === 'A' ? 'desayuno' : b === 'B' ? 'almuerzo' : 'cena'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="row between">
+          <span className="col" style={{ gap: 0 }}>
+            <b className="small">Este móvil es de</b>
+            <span className="tiny muted">Para preseleccionar tu parte en los bloques separados y en los extras.</span>
+          </span>
+          <Segmented
+            value={s.yoSoy ?? 'nadie'}
+            options={[{ value: 'nadie', label: '—' }, ...PROFILE_IDS.map((p) => ({ value: p, label: data.profiles[p].nombre }))]}
+            onChange={(v) => updateSettings({ yoSoy: v === 'nadie' ? undefined : (v as ProfileId) })}
+          />
+        </div>
         <div className="row between">
           <b className="small">Pesos por defecto</b>
           <Segmented

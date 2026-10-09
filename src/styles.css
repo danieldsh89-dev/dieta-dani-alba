@@ -898,3 +898,46 @@ textarea:focus {
   fill: var(--muted);
   font-size: 10px;
 }
+
+/* Comidas de una sola persona: una columna de cantidades */
+.meal-head.single,
+.meal-row.single {
+  grid-template-columns: minmax(0, 1fr) 110px;
+}
+/* Botón ✕ para quitar ingrediente */
+.rm {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.rm:active {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+/* Bloques separados por persona */
+.half {
+  border-left: 3px solid var(--line);
+  padding-left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.half.half-dani {
+  border-left-color: var(--chart-dani);
+}
+.half.half-alba {
+  border-left-color: var(--chart-alba);
+}
+.half .who {
+  font-weight: 700;
+  font-size: 0.78rem;
+}

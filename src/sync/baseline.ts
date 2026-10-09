@@ -34,6 +34,7 @@ export function unstampedChanges(d: AppData): { changed: string[]; deleted: stri
   d.history.forEach((h) => check('day', h.fecha));
   d.pesos.forEach((w) => check('weight', weightId(w)));
   Object.keys(d.ratings).forEach((id) => check('rating', id));
+  d.semanasTipo.forEach((w) => check('week', w.id));
   check('pantry', 'all');
   check('shopping', 'all');
   check('shared', 'all');

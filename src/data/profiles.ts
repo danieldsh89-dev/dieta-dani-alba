@@ -1,11 +1,14 @@
 import type { Block, BlockTarget, Profile, ProfileId, Settings, TrainingConfig } from '../types';
 
-/** Días de entreno por defecto: +kcal sobre todo en hidratos del bloque B (comida tras entrenar) */
+/**
+ * Configuración de días de entreno. Por defecto DESACTIVADA (sin diferencias entre días).
+ * Si se activa, propone +kcal sobre todo en hidratos del bloque B (comida tras entrenar).
+ */
 export function defaultTraining(bloques: Record<Block, BlockTarget>, kcalDia: number, proteinaDia: number, dias: number[]): TrainingConfig {
   const extraB = Math.round(kcalDia * 0.045 / 10) * 10;
   const extraA = Math.round(kcalDia * 0.01 / 10) * 10;
   return {
-    activo: true,
+    activo: false,
     dias,
     kcalDia: kcalDia + extraA + extraB,
     proteinaDia,
@@ -77,4 +80,5 @@ export const DEFAULT_SETTINGS: Settings = {
   permitirComplementosDistintos: false,
   mostrarPesos: 'cocinado',
   mostrarFibraSal: false,
+  bloquesSeparados: [],
 };

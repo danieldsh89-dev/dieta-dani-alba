@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { Block, Meal } from '../types';
+import type { Block, Meal, ProfileId } from '../types';
 import { BLOCKS, PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
 import { generateMeals, STYLE_LABELS, type GeneratedOption, type GeneratorRequest, type Style } from '../lib/mealGenerator';
@@ -21,7 +21,11 @@ export interface GeneratorPreset {
   modo?: 'generador' | 'casa';
   /** día del plan al que se añadirá la comida (por defecto hoy) */
   fecha?: string;
+  /** para quién generar (al venir de un bloque concreto); si no, según el ajuste de bloques separados */
+  para?: Para;
 }
+
+type Para = 'ambos' | ProfileId;
 
 export function GeneratorScreen({
   preset,
@@ -32,7 +36,7 @@ export function GeneratorScreen({
   onToast: (t: string) => void;
   onUsed: () => void;
 }) {
-  const { data, genCtx, fm, setDaySlot, setPantry, getDay } = useStore();
+  const { data, genCtx, fm, placeMeal, setPantry, getDay } = useStore();
   const [modo, setModo] = useState<'generador' | 'casa'>(preset?.modo ?? 'generador');
   const [bloque, setBloque] = useState<Block>(preset?.bloque ?? 'B');
   const [obligatorios, setObligatorios] = useState<string[]>([]);
@@ -42,6 +46,10 @@ export function GeneratorScreen({
   const [sinLacteos, setSinLacteos] = useState(false);
   const [soloSeleccionados, setSoloSeleccionados] = useState(false);
   const [usarLoQueTengo, setUsarLoQueTengo] = useState(false);
+  /** para quién: por defecto ambos; en los bloques que coméis por separado, el dueño de este móvil */
+  const defaultPara = (b: Block): Para =>
+    preset?.para ?? (data.settings.bloquesSeparados?.includes(b) ? data.settings.yoSoy ?? 'dani' : 'ambos');
+  const [para, setPara] = useState<Para>(defaultPara(preset?.bloque ?? 'B'));
   const [opciones, setOpciones] = useState<GeneratedOption[] | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
   const [shown, setShown] = useState<string[]>([]);
@@ -71,6 +79,7 @@ export function GeneratorScreen({
       maxOpciones: casa ? 5 : 4,
       excluirFirmas: extraExcl,
       objetivos,
+      para: para === 'ambos' ? undefined : para,
     };
   };
 
@@ -94,13 +103,16 @@ export function GeneratorScreen({
   };
 
   const use = (meal: Meal) => {
-    setDaySlot(meal.bloque, { meal: { ...meal, origen: 'generador' } }, fecha);
-    onToast(`Añadida como ${meal.bloque} de ${fechaText}`);
+    placeMeal({ ...meal, origen: 'generador' }, fecha);
+    onToast(`Añadida como ${meal.bloque} de ${fechaText}${meal.para ? ` (solo ${data.profiles[meal.para].nombre})` : ''}`);
     onUsed();
   };
 
   const togglePantry = (ids: string[]) => setPantry(ids);
-  const recientes = useMemo(() => recentMeals(data.history, bloque, 6), [data.history, bloque]);
+  const recientes = useMemo(
+    () => recentMeals(data.history, bloque, 6, todayKey(), para === 'ambos' ? undefined : para),
+    [data.history, bloque, para],
+  );
   const casa = modo === 'casa';
 
   return (
@@ -128,6 +140,19 @@ export function GeneratorScreen({
           options={BLOCKS.map((b) => ({ value: b, label: b }))}
           onChange={(b) => {
             setBloque(b);
+            setPara(defaultPara(b));
+            setOpciones(null);
+          }}
+        />
+        <Segmented
+          full
+          value={para}
+          options={[
+            { value: 'ambos', label: '👥 Ambos' },
+            ...PROFILE_IDS.map((p) => ({ value: p as Para, label: `Solo ${data.profiles[p].nombre}` })),
+          ]}
+          onChange={(v) => {
+            setPara(v);
             setOpciones(null);
           }}
         />
@@ -137,8 +162,14 @@ export function GeneratorScreen({
           </div>
         )}
         <div className="sub">
-          {BLOCK_DESC[bloque]} · Objetivo: <span className="dani">Dani {targets.dani.kcal}±{targets.dani.tolerancia}</span> ·{' '}
-          <span className="alba">Alba {targets.alba.kcal}±{targets.alba.tolerancia}</span> kcal
+          {BLOCK_DESC[bloque]} · Objetivo:{' '}
+          {(para === 'ambos' ? PROFILE_IDS : [para]).map((p, k) => (
+            <span key={p} className={p}>
+              {k > 0 && ' · '}
+              {data.profiles[p].nombre} {targets[p].kcal}±{targets[p].tolerancia}
+            </span>
+          ))}{' '}
+          kcal
           {today?.compensar && <span className="badge warn"> compensando comida libre</span>}
           {entrenos.length > 0 && <span className="badge ok"> 🏋️ día de entreno: {entrenos.join(' y ')}</span>}
         </div>

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { Block } from './types';
+import type { Block, ProfileId } from './types';
 import { WeightToggle, Toast } from './components/ui';
 import { HomeScreen } from './screens/HomeScreen';
 import { GeneratorScreen, type GeneratorPreset } from './screens/GeneratorScreen';
@@ -11,6 +11,7 @@ import { PlanScreen } from './screens/PlanScreen';
 import { SyncScreen } from './screens/SyncScreen';
 import { ProgressScreen } from './screens/ProgressScreen';
 import { useStore } from './store/AppStore';
+import { useBackHandler } from './lib/back';
 
 type Tab = 'inicio' | 'plan' | 'generar' | 'alimentos' | 'favoritos' | 'mas';
 type MoreView = 'menu' | 'progreso' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
@@ -47,9 +48,27 @@ export default function App() {
   const showToast = useCallback((t: string) => setToast(t), []);
   const clearToast = useCallback(() => setToast(null), []);
 
-  const goGenerate = (b: Block, fecha?: string) => {
+  // botón atrás a nivel de pantallas: submenú de Más → menú; otra pestaña → Hoy; en Hoy → salir
+  useBackHandler(() => {
+    if (tab === 'mas' && more !== 'menu') {
+      setMore('menu');
+      return true;
+    }
+    if (tab === 'generar' && returnTo !== 'inicio') {
+      setTab(returnTo);
+      return true;
+    }
+    if (tab !== 'inicio') {
+      setTab('inicio');
+      window.scrollTo(0, 0);
+      return true;
+    }
+    return false;
+  });
+
+  const goGenerate = (b: Block, fecha?: string, para?: ProfileId | 'ambos') => {
     setReturnTo(tab);
-    setPreset({ bloque: b, fecha });
+    setPreset({ bloque: b, fecha, para });
     setGenKey((k) => k + 1);
     setTab('generar');
     window.scrollTo(0, 0);
@@ -100,7 +119,7 @@ export default function App() {
 
       {tab === 'inicio' && (
         <HomeScreen
-          onGenerate={(b) => goGenerate(b)}
+          onGenerate={(b, para) => goGenerate(b, undefined, para)}
           onProgress={() => {
             setTab('mas');
             setMore('progreso');

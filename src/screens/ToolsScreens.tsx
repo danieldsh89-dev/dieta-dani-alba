@@ -4,7 +4,8 @@ import { BLOCKS, PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
 import { calibrateFactor, formatNumber } from '../lib/conversions';
 import { splitBatch } from '../lib/batch';
-import { dayTotals, isFree, todayKey } from '../lib/day';
+import { dayTotals, isFree, isSplit, personSlot, todayKey } from '../lib/day';
+import type { DaySlot } from '../types';
 import { round } from '../lib/nutrition';
 import { NumberInput, Sheet, Warnings } from '../components/ui';
 
@@ -244,14 +245,22 @@ export function HistoryScreen() {
               {d.compensar && <span className="badge warn">compensado</span>}
             </div>
             {BLOCKS.map((b) => {
-              const s = d.bloques[b];
+              const txt = (s: DaySlot | undefined) =>
+                !s ? '—' : isFree(s) ? `🍕 Comida libre${s.descripcion ? `: ${s.descripcion}` : ''}` : `${s.meal.nombre}${s.meal.ajustadoReal ? ' ✍️' : ''}`;
               return (
                 <div key={b} className="small">
                   <b style={{ color: 'var(--primary)' }}>{b}</b>{' '}
-                  {!s ? <span className="muted">—</span> : isFree(s) ? `🍕 Comida libre${s.descripcion ? `: ${s.descripcion}` : ''}` : s.meal.nombre}
+                  {isSplit(d, b)
+                    ? PROFILE_IDS.map((p) => (
+                        <span key={p} className={p} style={{ marginRight: 8 }}>
+                          {data.profiles[p].nombre}: {txt(personSlot(d, b, p))}
+                        </span>
+                      ))
+                    : txt(d.bloques[b])}
                 </div>
               );
             })}
+            {(d.extras ?? []).length > 0 && <div className="tiny muted">🍌 {d.extras!.length} extra(s)</div>}
             <div className="grid2">
               {PROFILE_IDS.map((p) => (
                 <div key={p} className="tiny">

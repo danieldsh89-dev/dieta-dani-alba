@@ -16,24 +16,38 @@ const fm = toFoodMap(seed.foods);
 const cm = toConversionMap(seed.conversions);
 const ctx: GeneratorContext = { foods: seed.foods, conversions: seed.conversions, profiles: seed.profiles, settings: seed.settings };
 
+// perfiles con los objetivos de entreno ACTIVADOS (por defecto vienen desactivados)
+const ACTIVE = {
+  dani: { ...SEED_PROFILES.dani, entreno: { ...SEED_PROFILES.dani.entreno, activo: true } },
+  alba: { ...SEED_PROFILES.alba, entreno: { ...SEED_PROFILES.alba.entreno, activo: true } },
+};
+
 describe('días de entreno y descanso', () => {
-  it('lunes, miércoles y viernes son de entreno por defecto', () => {
+  it('por defecto NO hay diferencias entre días', () => {
+    expect(SEED_PROFILES.dani.entreno.activo).toBe(false);
+    expect(isTrainingDay(SEED_PROFILES.dani, '2026-10-12')).toBe(false);
+    // ni siquiera marcando el día a mano
+    const day: DayLog = { fecha: '2026-10-12', bloques: {}, entreno: { dani: true } };
+    expect(dayGoals(SEED_PROFILES.dani, '2026-10-12', day).kcalDia).toBe(SEED_PROFILES.dani.kcalDia);
+    expect(targetsForDay('2026-10-12', 'B', SEED_PROFILES, day, fm).dani.kcal).toBe(SEED_PROFILES.dani.bloques.B.kcal);
+  });
+  it('activado: lunes, miércoles y viernes son de entreno', () => {
     expect(weekdayIndex('2026-10-12')).toBe(0); // lunes
-    expect(isTrainingDay(SEED_PROFILES.dani, '2026-10-12')).toBe(true);
-    expect(isTrainingDay(SEED_PROFILES.dani, '2026-10-13')).toBe(false); // martes
+    expect(isTrainingDay(ACTIVE.dani, '2026-10-12')).toBe(true);
+    expect(isTrainingDay(ACTIVE.dani, '2026-10-13')).toBe(false); // martes
   });
-  it('el cambio manual del día manda', () => {
+  it('activado: el cambio manual del día manda', () => {
     const day: DayLog = { fecha: '2026-10-13', bloques: {}, entreno: { dani: true } };
-    expect(isTrainingDay(SEED_PROFILES.dani, '2026-10-13', day)).toBe(true);
-    expect(isTrainingDay(SEED_PROFILES.alba, '2026-10-13', day)).toBe(false);
+    expect(isTrainingDay(ACTIVE.dani, '2026-10-13', day)).toBe(true);
+    expect(isTrainingDay(ACTIVE.alba, '2026-10-13', day)).toBe(false);
   });
-  it('día de entreno: más kcal en B (hidratos), mismo C', () => {
-    const train = targetsForDay('2026-10-12', 'B', SEED_PROFILES, undefined, fm);
-    const rest = targetsForDay('2026-10-13', 'B', SEED_PROFILES, undefined, fm);
+  it('activado: día de entreno con más kcal en B, mismo C', () => {
+    const train = targetsForDay('2026-10-12', 'B', ACTIVE, undefined, fm);
+    const rest = targetsForDay('2026-10-13', 'B', ACTIVE, undefined, fm);
     expect(train.dani.kcal).toBeGreaterThan(rest.dani.kcal);
     expect(train.alba.kcal).toBeGreaterThan(rest.alba.kcal);
-    expect(targetsForDay('2026-10-12', 'C', SEED_PROFILES, undefined, fm).dani.kcal).toBe(rest.dani.kcal === 0 ? 0 : SEED_PROFILES.dani.bloques.C.kcal);
-    expect(dayGoals(SEED_PROFILES.dani, '2026-10-12').kcalDia).toBeGreaterThan(SEED_PROFILES.dani.kcalDia);
+    expect(targetsForDay('2026-10-12', 'C', ACTIVE, undefined, fm).dani.kcal).toBe(SEED_PROFILES.dani.bloques.C.kcal);
+    expect(dayGoals(ACTIVE.dani, '2026-10-12').kcalDia).toBeGreaterThan(SEED_PROFILES.dani.kcalDia);
   });
   it('perfiles guardados sin días de entreno los reciben a partir de SUS objetivos', () => {
     const old = createSeedData() as AppData;
@@ -42,6 +56,17 @@ describe('días de entreno y descanso', () => {
     const merged = mergeWithSeed({ ...old, profiles: { ...old.profiles, dani } });
     expect(merged.profiles.dani.entreno.bloques.B.kcal).toBeGreaterThan(700);
     expect(merged.profiles.dani.bloques.B.kcal).toBe(700);
+  });
+  it('al actualizar desde la v1.2 se desactivan las diferencias (y se marca para sincronizar)', () => {
+    const old = { ...createSeedData(), version: 1, profiles: ACTIVE } as AppData;
+    const m = mergeWithSeed(old);
+    expect(m.profiles.dani.entreno.activo).toBe(false);
+    expect(m.profiles.alba.entreno.activo).toBe(false);
+    expect(m.version).toBe(2);
+    expect(m.sync.pending).toContain('profile:dani');
+    // ya migrado: si el usuario lo vuelve a activar, se respeta
+    const again = mergeWithSeed({ ...m, profiles: ACTIVE });
+    expect(again.profiles.dani.entreno.activo).toBe(true);
   });
 });
 

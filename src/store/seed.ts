@@ -8,9 +8,10 @@ import { SEED_FAVORITES } from '../data/seedMeals';
 import { DIETA_MODULAR } from '../data/dietaModular';
 import { servingToBase, toConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap } from '../lib/nutrition';
-import { emptySync } from '../sync/docs';
+import { emptySync, key, touch } from '../sync/docs';
 
-export const DATA_VERSION = 1;
+/** 2 = v1.3: días de entreno desactivados por defecto, comidas por persona, extras y semanas tipo */
+export const DATA_VERSION = 2;
 
 export function buildSeedFavorites(): Favorite[] {
   const fm = toFoodMap(SEED_FOODS);
@@ -51,6 +52,7 @@ export function createSeedData(): AppData {
     shoppingChecked: [],
     pesos: [],
     ratings: {},
+    semanasTipo: [],
     settings: { ...DEFAULT_SETTINGS },
     sync: emptySync(),
   };
@@ -58,6 +60,18 @@ export function createSeedData(): AppData {
 
 /** Añade a los datos guardados los alimentos/conversiones nuevos de la base sin pisar ediciones del usuario. */
 export function mergeWithSeed(saved: AppData): AppData {
+  const merged = mergeRaw(saved);
+  if ((saved.version ?? 1) >= 2) return merged;
+  // Migración a v2: sin diferencias en días de entreno (el usuario puede reactivarlo en Configuración).
+  // Se marca como cambio para que también gane en la sincronización frente a perfiles antiguos.
+  const profiles = {
+    dani: { ...merged.profiles.dani, entreno: { ...merged.profiles.dani.entreno, activo: false } },
+    alba: { ...merged.profiles.alba, entreno: { ...merged.profiles.alba.entreno, activo: false } },
+  };
+  return touch({ ...merged, version: DATA_VERSION, profiles }, [key('profile', 'dani'), key('profile', 'alba')]);
+}
+
+function mergeRaw(saved: AppData): AppData {
   const seed = createSeedData();
   const foodIds = new Set(saved.foods.map((f) => f.id));
   const convIds = new Set(saved.conversions.map((c) => c.id));
@@ -85,6 +99,7 @@ export function mergeWithSeed(saved: AppData): AppData {
     },
     pesos: saved.pesos ?? [],
     ratings: saved.ratings ?? {},
+    semanasTipo: saved.semanasTipo ?? [],
   };
 }
 

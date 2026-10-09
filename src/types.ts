@@ -179,6 +179,10 @@ export interface Meal {
   items: MealItem[];
   notas?: string;
   origen: 'generador' | 'favorito' | 'manual' | 'semilla';
+  /** comida solo para una persona (si no, para ambos) */
+  para?: ProfileId;
+  /** las cantidades se han corregido a lo que realmente se comió */
+  ajustadoReal?: boolean;
 }
 
 export interface Favorite extends Meal {
@@ -207,6 +211,29 @@ export interface DayLog {
   compensar?: boolean;
   /** tipo de día por perfil si se cambia a mano (si no, según los días de entreno del perfil) */
   entreno?: Partial<Record<ProfileId, boolean>>;
+  /**
+   * Bloques en los que cada uno come algo distinto. Si un bloque está aquí, se ignora
+   * `bloques[b]` y cada persona tiene su propia comida (o nada).
+   */
+  separado?: Partial<Record<Block, Partial<Record<ProfileId, DaySlot>>>>;
+  /** extras fuera del plan (picoteo): cuentan en los totales del día */
+  extras?: ExtraItem[];
+}
+
+export interface ExtraItem {
+  id: string;
+  foodId: string;
+  metodoId?: string;
+  /** cantidad en estado base (g/ml), 0 = esa persona no lo tomó */
+  cantidades: Record<ProfileId, number>;
+}
+
+/** Semana tipo: 7 días (lunes…domingo) para aplicar a cualquier semana */
+export interface WeekTemplate {
+  id: string;
+  nombre: string;
+  creado: string;
+  dias: Pick<DayLog, 'bloques' | 'separado'>[];
 }
 
 export interface WeightEntry {
@@ -230,6 +257,10 @@ export interface Settings {
   permitirComplementosDistintos: boolean;
   mostrarPesos: WeightView;
   mostrarFibraSal: boolean;
+  /** bloques en los que por defecto cada uno come algo distinto (p. ej. desayuno) */
+  bloquesSeparados: Block[];
+  /** de quién es este móvil (no se sincroniza): para preseleccionar en los bloques separados */
+  yoSoy?: ProfileId;
 }
 
 /** Estado de sincronización en la nube (por dispositivo) */
@@ -266,6 +297,7 @@ export interface AppData {
   pesos: WeightEntry[];
   /** firma de ingredientes → valoración */
   ratings: Record<string, Rating>;
+  semanasTipo: WeekTemplate[];
   settings: Settings;
   sync: SyncState;
 }

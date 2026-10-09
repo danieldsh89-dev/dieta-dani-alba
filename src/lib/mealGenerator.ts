@@ -61,6 +61,8 @@ export interface GeneratorRequest {
   excluirFirmas?: string[];
   /** objetivos alternativos (p. ej. compensación de comida libre) */
   objetivos?: Partial<Record<ProfileId, BlockTarget>>;
+  /** generar solo para una persona (si no, la misma receta para ambos) */
+  para?: ProfileId;
 }
 
 export interface GeneratorContext {
@@ -666,6 +668,7 @@ function toOption(
     bloque: req.bloque,
     items: sortItems(e.items, ctx.fm),
     origen: 'generador',
+    ...(req.para ? { para: req.para } : {}),
   };
   return finalizeOption(meal, etiqueta, ctx, e.cost, e.firma, e.set.plantilla);
 }
@@ -699,20 +702,20 @@ export function generateMeals(req: GeneratorRequest, gctx: GeneratorContext): Ge
   const avisos: string[] = [];
   const maxOpts = Math.min(5, Math.max(3, req.maxOpciones ?? 4));
 
+  const profiles: ProfileId[] = req.para ? [req.para] : PROFILE_IDS;
   for (const m of req.obligatorios) {
     const f = ctx.fm[m];
     if (!f) continue;
-    for (const pid of PROFILE_IDS) {
+    for (const pid of profiles) {
       if (!foodAllowedFor(f, ctx.profiles[pid])) avisos.push(`${f.nombre}: no recomendado para ${ctx.profiles[pid].nombre}`);
     }
     if (req.prohibidos.includes(m)) avisos.push(`${f.nombre} está a la vez en obligatorios y prohibidos: se usa como obligatorio`);
   }
 
-  if (!gctx.settings.mismaRecetaParaAmbos) {
+  if (!req.para && !gctx.settings.mismaRecetaParaAmbos) {
     return generateSeparate(req, ctx, maxOpts, avisos);
   }
 
-  const profiles = PROFILE_IDS;
   const pool = buildPool(req, ctx, profiles);
   const excl = new Set(req.excluirFirmas ?? []);
   const cands = buildCandidates(req, ctx, pool).filter((c) => !excl.has(signature(c.ids)));
@@ -720,12 +723,12 @@ export function generateMeals(req: GeneratorRequest, gctx: GeneratorContext): Ge
   const chosen = pickDiverse(evals, req, ctx, profiles, maxOpts);
 
   let opciones = chosen.map(({ e, label }) => toOption(e, label, req, ctx));
-  if (gctx.settings.permitirComplementosDistintos) {
+  if (gctx.settings.permitirComplementosDistintos && !req.para) {
     opciones = opciones.map((o) => addPersonalComplement(o, req, ctx, pool));
   }
   if (opciones.length === 0) {
     avisos.push('No se han encontrado combinaciones con estas condiciones. Prueba a quitar filtros o ingredientes prohibidos.');
-  } else if (opciones.every((o) => PROFILE_IDS.some((p) => o.estado[p] === 'bajo' || o.estado[p] === 'alto'))) {
+  } else if (opciones.every((o) => profiles.some((p) => o.estado[p] === 'bajo' || o.estado[p] === 'alto'))) {
     avisos.push('Ninguna opción entra en el rango calórico con estos ingredientes: se muestran las más cercanas.');
   }
   return { opciones, avisos, candidatosEvaluados: evals.length };
@@ -934,7 +937,7 @@ export function adjustMeal(
     !prohibidos.includes(f.id) &&
     !ids.includes(f.id) &&
     f.bloques.includes(meal.bloque) &&
-    PROFILE_IDS.every((p) => foodAllowedFor(f, gctx.profiles[p])) &&
+    (meal.para ? [meal.para] : PROFILE_IDS).every((p) => foodAllowedFor(f, gctx.profiles[p])) &&
     !f.tags.includes('solo_si_se_incluye');
   let add: Food | undefined;
   if (goal === 'volumen') {
@@ -955,7 +958,8 @@ export function adjustMeal(
   if (add) {
     const base = { dani: 0, alba: 0 } as Record<ProfileId, number>;
     const cm = toConversionMap(gctx.conversions);
-    for (const p of PROFILE_IDS) base[p] = servingToBase(add, portionRange(add, gctx.profiles[p]).habitual, cm);
+    for (const p of PROFILE_IDS)
+      base[p] = meal.para && p !== meal.para ? 0 : servingToBase(add, portionRange(add, gctx.profiles[p]).habitual, cm);
     items.push({ foodId: add.id, cantidades: base });
   }
   const fmNames = toFoodMap(gctx.foods);

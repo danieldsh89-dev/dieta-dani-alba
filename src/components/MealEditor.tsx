@@ -53,6 +53,9 @@ export function MealEditor({
   const [adding, setAdding] = useState(false);
 
   const editable = !!onChange;
+  /** columnas: las dos personas, o solo una si la comida es "solo para…" */
+  const cols: ProfileId[] = meal.para ? [meal.para] : PROFILE_IDS;
+  const single = cols.length === 1;
   const totals = useMemo(
     () => Object.fromEntries(PROFILE_IDS.map((p) => [p, mealNutrients(meal, p, fm)])) as Record<ProfileId, ReturnType<typeof mealNutrients>>,
     [meal, fm],
@@ -97,7 +100,8 @@ export function MealEditor({
     if (meal.items.some((i) => i.foodId === id)) return;
     const food = fm[id];
     const cantidades = {} as Record<ProfileId, number>;
-    for (const p of PROFILE_IDS) cantidades[p] = servingToBase(food, portionRange(food, data.profiles[p]).habitual, cm);
+    for (const p of PROFILE_IDS)
+      cantidades[p] = cols.includes(p) ? servingToBase(food, portionRange(food, data.profiles[p]).habitual, cm) : 0;
     const items = [...meal.items, { foodId: id, cantidades }];
     update({ ...meal, items, nombre: renameIfAuto(meal, items.map((i) => i.foodId)) });
     setAdding(false);
@@ -106,10 +110,13 @@ export function MealEditor({
   return (
     <div className="col">
       <div className="meal-table">
-        <div className="meal-head">
+        <div className={`meal-head ${single ? 'single' : ''}`}>
           <span className="muted">Ingrediente · {view === 'crudo' ? 'pesos crudos' : 'pesos cocinados'}</span>
-          <span className="dani">{data.profiles.dani.nombre}</span>
-          <span className="alba">{data.profiles.alba.nombre}</span>
+          {cols.map((p) => (
+            <span key={p} className={p}>
+              {single ? `Solo ${data.profiles[p].nombre}` : data.profiles[p].nombre}
+            </span>
+          ))}
         </div>
         {meal.items.map((it, idx) => {
           const food = fm[it.foodId];
@@ -122,7 +129,13 @@ export function MealEditor({
           }
           const st = stateLabel(food, view, cm, it.metodoId);
           return (
-            <div className="meal-row" key={`${it.foodId}-${idx}`}>
+            <div className={`meal-row ${single ? 'single' : ''}`} key={`${it.foodId}-${idx}`}>
+              <div className="row" style={{ gap: 4, minWidth: 0, alignItems: 'flex-start' }}>
+              {editable && (
+                <button className="rm" onClick={() => removeItem(idx)} aria-label={`Quitar ${shortName(food)}`} title="Quitar ingrediente">
+                  ✕
+                </button>
+              )}
               <button className="food-name" onClick={() => setActionIdx(idx)} title="Opciones del ingrediente">
                 <span className="n">{shortName(food)}</span>
                 <span className="row tiny muted" style={{ gap: 4 }}>
@@ -132,7 +145,8 @@ export function MealEditor({
                   {food.aviso && <span title={food.aviso}>⚠️</span>}
                 </span>
               </button>
-              {PROFILE_IDS.map((pid) => {
+              </div>
+              {cols.map((pid) => {
                 const q = it.cantidades[pid] ?? 0;
                 const d = displayQuantity(food, q, view, cm, it.metodoId);
                 return (
@@ -183,7 +197,7 @@ export function MealEditor({
       {cooking && <CookMode meal={meal} onClose={() => setCooking(false)} />}
       {!hideTotals && (
         <div className="totals">
-          {PROFILE_IDS.map((p) => (
+          {cols.map((p) => (
             <TotalsBox key={p} pid={p} n={totals[p]} target={targets?.[p]} />
           ))}
         </div>

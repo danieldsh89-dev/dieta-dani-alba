@@ -3,10 +3,10 @@
  * Funciones puras (sin React) — tests en __tests__/planning.test.ts.
  */
 import type { Block, Category, DayLog, Food, ProfileId } from '../types';
-import { BLOCKS, PROFILE_IDS } from '../types';
+import { PROFILE_IDS } from '../types';
 import { cookingFactor, hasConversion, roundTo, type ConversionMap } from './conversions';
 import { nutrientsFor, type FoodMap } from './nutrition';
-import { isFree } from './day';
+import { dayMeals } from './day';
 
 // ───────── fechas ─────────
 
@@ -59,11 +59,8 @@ export function plannedMeals(history: DayLog[], dates: string[]): PlannedMeal[] 
   const out: PlannedMeal[] = [];
   for (const day of history) {
     if (!set.has(day.fecha)) continue;
-    for (const b of BLOCKS) {
-      const slot = day.bloques[b];
-      if (!slot || isFree(slot)) continue;
-      out.push({ fecha: day.fecha, bloque: b, meal: slot.meal });
-    }
+    // incluye las comidas de cada persona en los bloques separados
+    for (const m of dayMeals(day)) out.push({ fecha: day.fecha, bloque: m.bloque, meal: m.meal });
   }
   return out.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.bloque.localeCompare(b.bloque));
 }

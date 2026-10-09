@@ -1,16 +1,17 @@
-import { useState } from 'react';
-import type { Block, Favorite } from '../types';
-import { BLOCKS } from '../types';
+import { useMemo, useState } from 'react';
+import type { Block, Favorite, ProfileId } from '../types';
+import { BLOCKS, PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
 import { round } from '../lib/nutrition';
 import { targetsForDay, todayKey } from '../lib/day';
-import { favoriteToMeal, sortFavorites } from '../lib/favorites';
+import { favoriteToMeal, filterFavorites, sortFavorites, type FavFilter } from '../lib/favorites';
 import { resizeImage } from '../lib/image';
 import { formatDay } from '../lib/planning';
 import { MealEditor } from '../components/MealEditor';
 import { NameSheet } from '../components/NameSheet';
 import { DateSheet } from '../components/DateSheet';
 import { Segmented, Sheet } from '../components/ui';
+import { normalize } from '../components/FoodPicker';
 
 export function FavThumb({ fav, size = 52 }: { fav: Favorite; size?: number }) {
   return fav.foto ? (
@@ -26,7 +27,13 @@ export function FavoritesScreen({ onToast }: { onToast: (t: string) => void }) {
   const { data } = useStore();
   const [block, setBlock] = useState<Block>('B');
   const [openId, setOpenId] = useState<string | null>(null);
-  const favs = sortFavorites(data.favorites.filter((f) => f.bloque === block));
+  const [q, setQ] = useState('');
+  const [filtro, setFiltro] = useState<FavFilter>({});
+  const favs = useMemo(
+    () => sortFavorites(filterFavorites(data.favorites.filter((f) => f.bloque === block), normalize(q), filtro, data.foods)),
+    [data.favorites, data.foods, block, q, filtro],
+  );
+  const toggle = (k: keyof FavFilter, v: FavFilter[keyof FavFilter]) => setFiltro((f) => ({ ...f, [k]: f[k] === v ? undefined : v }));
   const open = data.favorites.find((f) => f.id === openId);
 
   return (
@@ -37,21 +44,44 @@ export function FavoritesScreen({ onToast }: { onToast: (t: string) => void }) {
         options={BLOCKS.map((b) => ({ value: b, label: `Favoritos ${b} (${data.favorites.filter((f) => f.bloque === b).length})` }))}
         onChange={setBlock}
       />
-      <div className="sub">Ordenados por los más usados.</div>
+      <input type="search" placeholder="Buscar por nombre o ingrediente (p. ej. albóndigas)…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="chips">
+        <button className={`chip ${filtro.para === 'ambos' ? 'on' : ''}`} onClick={() => toggle('para', 'ambos')}>
+          👥 Para los dos
+        </button>
+        {PROFILE_IDS.map((p) => (
+          <button key={p} className={`chip ${filtro.para === p ? 'on' : ''}`} onClick={() => toggle('para', p as ProfileId)}>
+            Solo {data.profiles[p].nombre}
+          </button>
+        ))}
+        <button className={`chip ${filtro.sinLacteos ? 'on' : ''}`} onClick={() => toggle('sinLacteos', true)}>
+          Sin lácteos
+        </button>
+        <button className={`chip ${filtro.sinPescado ? 'on' : ''}`} onClick={() => toggle('sinPescado', true)}>
+          Sin pescado
+        </button>
+        <button className={`chip ${filtro.conFoto ? 'on' : ''}`} onClick={() => toggle('conFoto', true)}>
+          📷 Con foto
+        </button>
+      </div>
+      <div className="sub">
+        {favs.length} {favs.length === 1 ? 'favorito' : 'favoritos'} · ordenados por los más usados.
+      </div>
       <div className="list">
         {favs.map((f) => (
           <button key={f.id} className="list-item" onClick={() => setOpenId(f.id)}>
             <FavThumb fav={f} />
             <div className="grow col" style={{ gap: 2 }}>
-              <div className="ttl">{f.nombre}</div>
+              <div className="ttl">
+                {f.para && <span className={`badge ${f.para}`}>solo {data.profiles[f.para].nombre}</span>} {f.nombre}
+              </div>
               <div className="tiny">
-                <span className="dani">
-                  Dani {round(f.totales.dani.kcal)} kcal · P {round(f.totales.dani.proteina)}
-                </span>{' '}
-                ·{' '}
-                <span className="alba">
-                  Alba {round(f.totales.alba.kcal)} kcal · P {round(f.totales.alba.proteina)}
-                </span>
+                {(f.para ? [f.para] : PROFILE_IDS).map((p, i) => (
+                  <span key={p} className={p}>
+                    {i > 0 && ' · '}
+                    {data.profiles[p].nombre} {round(f.totales[p].kcal)} kcal · P {round(f.totales[p].proteina)}
+                  </span>
+                ))}
               </div>
               {(f.usos ?? 0) > 0 && (
                 <div className="tiny muted">
@@ -61,15 +91,31 @@ export function FavoritesScreen({ onToast }: { onToast: (t: string) => void }) {
             </div>
           </button>
         ))}
-        {favs.length === 0 && <div className="empty">No hay favoritos en {block}. Genera una comida y pulsa “★ Guardar”.</div>}
+        {favs.length === 0 && (
+          <div className="empty">
+            {q || Object.values(filtro).some(Boolean)
+              ? 'Ningún favorito con esa búsqueda o filtro.'
+              : `No hay favoritos en ${block}. Genera una comida y pulsa “★ Guardar”.`}
+          </div>
+        )}
       </div>
-      {open && <FavoriteDetail key={open.id} fav={open} onClose={() => setOpenId(null)} onToast={onToast} />}
+      {open && <FavoriteDetail key={open.id} fav={open} onClose={() => setOpenId(null)} onOpen={setOpenId} onToast={onToast} />}
     </div>
   );
 }
 
-function FavoriteDetail({ fav, onClose, onToast }: { fav: Favorite; onClose: () => void; onToast: (t: string) => void }) {
-  const { data, fm, getDay, updateFavorite, removeFavorite, setDaySlot, markFavoriteUsed } = useStore();
+function FavoriteDetail({
+  fav,
+  onClose,
+  onOpen,
+  onToast,
+}: {
+  fav: Favorite;
+  onClose: () => void;
+  onOpen: (id: string) => void;
+  onToast: (t: string) => void;
+}) {
+  const { data, fm, getDay, updateFavorite, removeFavorite, placeMeal, markFavoriteUsed, addFavorite } = useStore();
   const [meal, setMeal] = useState<Favorite>(fav);
   const [renaming, setRenaming] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -128,9 +174,9 @@ function FavoriteDetail({ fav, onClose, onToast }: { fav: Favorite; onClose: () 
         <button
           className="btn soft small"
           onClick={() => {
-            setDaySlot(meal.bloque, { meal: favoriteToMeal(meal) });
+            placeMeal(favoriteToMeal(meal));
             markFavoriteUsed(fav.id);
-            onToast(`Usada como ${meal.bloque} de hoy`);
+            onToast(`Usada como ${meal.bloque} de hoy${meal.para ? ` (solo ${data.profiles[meal.para].nombre})` : ''}`);
             onClose();
           }}
         >
@@ -141,6 +187,17 @@ function FavoriteDetail({ fav, onClose, onToast }: { fav: Favorite; onClose: () 
         </button>
         <button className="btn small" onClick={() => setRenaming(true)}>
           ✎ Renombrar
+        </button>
+        <button
+          className="btn small"
+          title="Crea una copia para hacer una variante"
+          onClick={() => {
+            const copy = addFavorite({ ...meal, nombre: `${meal.nombre} (copia)`, foto: undefined, usos: undefined, ultimoUso: undefined } as Favorite);
+            onToast('Copia creada: cámbiala a tu gusto');
+            onOpen(copy.id);
+          }}
+        >
+          ⧉ Duplicar
         </button>
         <button className="btn small danger" onClick={() => setConfirmDel(true)}>
           Eliminar
@@ -171,7 +228,7 @@ function FavoriteDetail({ fav, onClose, onToast }: { fav: Favorite; onClose: () 
           title={`Añadir al plan (${meal.bloque})`}
           onClose={() => setPlanning(false)}
           onPick={(d) => {
-            setDaySlot(meal.bloque, { meal: favoriteToMeal(meal) }, d);
+            placeMeal(favoriteToMeal(meal), d);
             markFavoriteUsed(fav.id);
             setPlanning(false);
             onToast(`Planificada: ${formatDay(d)} · ${meal.bloque}`);

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Block } from '../types';
+import type { Block, DaySlot, ProfileId, WeekTemplate } from '../types';
 import { BLOCKS, PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
-import { dayGoals, dayTotals, isFree, targetsForDay, todayKey } from '../lib/day';
+import { blockHasContent, dayGoals, dayTotals, isFree, isSplit, personSlot, targetsForDay, todayKey } from '../lib/day';
 import { shortName } from '../lib/mealGenerator';
 import { formatNumber } from '../lib/conversions';
 import { round } from '../lib/nutrition';
@@ -20,6 +20,7 @@ import {
 } from '../lib/planning';
 import { MealEditor } from '../components/MealEditor';
 import { DateSheet } from '../components/DateSheet';
+import { NameSheet } from '../components/NameSheet';
 import { NumberInput, Segmented, Sheet, Warnings, CATEGORY_ICONS } from '../components/ui';
 import { FavoritePickSheet, FreeMealSheet } from './HomeScreen';
 import { shareText } from './SyncScreen';
@@ -44,7 +45,7 @@ export function PlanScreen({
   onGenerate,
   onToast,
 }: {
-  onGenerate: (b: Block, fecha: string) => void;
+  onGenerate: (b: Block, fecha: string, para: ProfileId | 'ambos') => void;
   onToast: (t: string) => void;
 }) {
   const today = todayKey();
@@ -75,6 +76,13 @@ export function PlanScreen({
 
 // ───────────────── Semana ─────────────────
 
+interface SlotTarget {
+  fecha: string;
+  bloque: Block;
+  /** parte de una persona (bloque separado) */
+  pid?: ProfileId;
+}
+
 function WeekView({
   anchor,
   setAnchor,
@@ -83,15 +91,18 @@ function WeekView({
 }: {
   anchor: string;
   setAnchor: (d: string) => void;
-  onGenerate: (b: Block, fecha: string) => void;
+  onGenerate: (b: Block, fecha: string, para: ProfileId | 'ambos') => void;
   onToast: (t: string) => void;
 }) {
-  const { data, fm, getDay, copyDay } = useStore();
+  const { data, fm, getDay, copyDay, saveWeekTemplate } = useStore();
   const today = todayKey();
   const dates = weekDates(anchor);
-  const [slot, setSlot] = useState<{ fecha: string; bloque: Block } | null>(null);
+  const [slot, setSlot] = useState<SlotTarget | null>(null);
   const [copyFrom, setCopyFrom] = useState<string | null>(null);
+  const [saveTpl, setSaveTpl] = useState(false);
+  const [applyTpl, setApplyTpl] = useState(false);
   const todayRef = useRef<HTMLDivElement>(null);
+  const separados = data.settings.bloquesSeparados ?? [];
   useEffect(() => {
     if (dates.includes(today) && today !== dates[0]) todayRef.current?.scrollIntoView({ block: 'start' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,6 +119,9 @@ function WeekView({
     }
     onToast(n ? `Copiados ${n} días de la semana anterior` : 'No hay días que copiar (o ya están planificados)');
   };
+
+  const label = (s: DaySlot | undefined) =>
+    !s ? 'Añadir…' : isFree(s) ? `🍕 Comida libre${s.descripcion ? `: ${s.descripcion}` : ''}` : s.meal.nombre;
 
   return (
     <>
@@ -129,9 +143,17 @@ function WeekView({
           ›
         </button>
       </div>
-      <button className="btn small" onClick={copyPrevWeek}>
-        ⧉ Copiar la semana anterior en los días vacíos
-      </button>
+      <div className="btn-row">
+        <button className="btn small" onClick={copyPrevWeek}>
+          ⧉ Copiar semana anterior
+        </button>
+        <button className="btn small" onClick={() => setApplyTpl(true)}>
+          📋 Semana tipo…
+        </button>
+        <button className="btn small" onClick={() => setSaveTpl(true)} disabled={!dates.some((d) => getDay(d))}>
+          💾 Guardar como tipo
+        </button>
+      </div>
       {dates.map((fecha) => {
         const day = getDay(fecha);
         const t = dayTotals(day, fm);
@@ -166,19 +188,47 @@ function WeekView({
               </div>
             </div>
             {BLOCKS.map((b) => {
-              const s = day?.bloques[b];
+              const split = isSplit(day, b) || (!blockHasContent(day, b) && separados.includes(b));
+              if (!split) {
+                const s = day?.bloques[b];
+                return (
+                  <button
+                    key={b}
+                    className="list-item"
+                    style={{ padding: '6px 0', borderBottom: 'none' }}
+                    onClick={() => setSlot({ fecha, bloque: b })}
+                  >
+                    <b style={{ color: 'var(--primary)', width: 16 }}>{b}</b>
+                    <span className={`grow small ${s ? '' : 'muted'}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {label(s)}
+                    </span>
+                  </button>
+                );
+              }
               return (
-                <button
-                  key={b}
-                  className="list-item"
-                  style={{ padding: '6px 0', borderBottom: 'none' }}
-                  onClick={() => setSlot({ fecha, bloque: b })}
-                >
-                  <b style={{ color: 'var(--primary)', width: 16 }}>{b}</b>
-                  <span className={`grow small ${s ? '' : 'muted'}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {!s ? 'Añadir…' : isFree(s) ? `🍕 Comida libre${s.descripcion ? `: ${s.descripcion}` : ''}` : s.meal.nombre}
-                  </span>
-                </button>
+                <div key={b} className="row" style={{ alignItems: 'stretch', gap: 6 }}>
+                  <b style={{ color: 'var(--primary)', width: 16, paddingTop: 6 }}>{b}</b>
+                  <div className="col grow" style={{ gap: 0, minWidth: 0 }}>
+                    {PROFILE_IDS.map((pid) => {
+                      const s = personSlot(day, b, pid);
+                      return (
+                        <button
+                          key={pid}
+                          className="list-item"
+                          style={{ padding: '4px 0', borderBottom: 'none' }}
+                          onClick={() => setSlot({ fecha, bloque: b, pid })}
+                        >
+                          <span className={`tiny ${pid}`} style={{ width: 34, fontWeight: 700 }}>
+                            {data.profiles[pid].nombre}
+                          </span>
+                          <span className={`grow small ${s ? '' : 'muted'}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {label(s)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -186,11 +236,10 @@ function WeekView({
       })}
       {slot && (
         <SlotSheet
-          fecha={slot.fecha}
-          bloque={slot.bloque}
+          target={slot}
           onClose={() => setSlot(null)}
           onGenerate={() => {
-            onGenerate(slot.bloque, slot.fecha);
+            onGenerate(slot.bloque, slot.fecha, slot.pid ?? 'ambos');
             setSlot(null);
           }}
           onToast={onToast}
@@ -208,38 +257,118 @@ function WeekView({
           }}
         />
       )}
+      {saveTpl && (
+        <NameSheet
+          title="Guardar semana tipo"
+          label="Nombre de la semana tipo"
+          initial={`Semana ${formatDay(dates[0], { day: 'numeric', month: 'short' })}`}
+          onClose={() => setSaveTpl(false)}
+          onSave={(n) => {
+            saveWeekTemplate(n, dates[0]);
+            setSaveTpl(false);
+            onToast(`Semana tipo “${n}” guardada`);
+          }}
+        />
+      )}
+      {applyTpl && <WeekTemplatesSheet weekStart={dates[0]} onClose={() => setApplyTpl(false)} onToast={onToast} />}
       {data.history.length === 0 && <div className="empty">Toca un bloque para planificar la semana.</div>}
     </>
   );
 }
 
+function WeekTemplatesSheet({ weekStart: start, onClose, onToast }: { weekStart: string; onClose: () => void; onToast: (t: string) => void }) {
+  const { data, applyWeekTemplate, removeWeekTemplate } = useStore();
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const count = (w: WeekTemplate) =>
+    w.dias.reduce((s, d) => s + BLOCKS.filter((b) => blockHasContent({ fecha: '', bloques: d.bloques, separado: d.separado }, b)).length, 0);
+  return (
+    <Sheet title={`Semanas tipo → semana del ${formatDay(start, { day: 'numeric', month: 'short' })}`} onClose={onClose}>
+      <div className="sub">
+        <b>Rellenar huecos</b> solo pone comidas donde no hay nada. <b>Reemplazar</b> sustituye las comidas de la semana (los extras se
+        mantienen).
+      </div>
+      {data.semanasTipo.length === 0 && (
+        <div className="empty">Aún no hay semanas tipo. Planifica una semana y pulsa “💾 Guardar como tipo”.</div>
+      )}
+      {data.semanasTipo.map((w) => (
+        <div key={w.id} className="card tight">
+          <div className="row between">
+            <b>{w.nombre}</b>
+            <span className="tiny muted">
+              {count(w)} {count(w) === 1 ? 'comida' : 'comidas'}
+            </span>
+          </div>
+          <div className="btn-row">
+            <button
+              className="btn small primary"
+              onClick={() => {
+                applyWeekTemplate(w.id, start, 'huecos');
+                onToast(`“${w.nombre}” aplicada (huecos)`);
+                onClose();
+              }}
+            >
+              Rellenar huecos
+            </button>
+            <button
+              className="btn small"
+              onClick={() => {
+                applyWeekTemplate(w.id, start, 'reemplazar');
+                onToast(`“${w.nombre}” aplicada`);
+                onClose();
+              }}
+            >
+              Reemplazar semana
+            </button>
+            {confirmDel === w.id ? (
+              <button
+                className="btn small danger"
+                onClick={() => {
+                  removeWeekTemplate(w.id);
+                  setConfirmDel(null);
+                }}
+              >
+                ¿Borrar? Sí
+              </button>
+            ) : (
+              <button className="btn small danger" onClick={() => setConfirmDel(w.id)}>
+                🗑
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </Sheet>
+  );
+}
+
 function SlotSheet({
-  fecha,
-  bloque,
+  target,
   onClose,
   onGenerate,
   onToast,
 }: {
-  fecha: string;
-  bloque: Block;
+  target: SlotTarget;
   onClose: () => void;
   onGenerate: () => void;
   onToast: (t: string) => void;
 }) {
-  const { data, fm, getDay, setDaySlot } = useStore();
+  const { data, fm, getDay, setDaySlot, setPersonSlot, placeMeal, splitBlock, joinBlock } = useStore();
+  const { fecha, bloque, pid } = target;
   const day = getDay(fecha);
-  const s = day?.bloques[bloque];
+  const s = pid ? personSlot(day, bloque, pid) : day?.bloques[bloque];
+  const save = (x: DaySlot | undefined, f = fecha) => (pid ? setPersonSlot(bloque, pid, x, f) : setDaySlot(bloque, x, f));
   const [mode, setMode] = useState<'menu' | 'fav' | 'free' | 'copy'>('menu');
   const targets = targetsForDay(fecha, bloque, data.profiles, day, fm);
-  const title = `${bloque} · ${formatDay(fecha, { weekday: 'long', day: 'numeric' })}`;
+  const title = `${bloque}${pid ? ` · ${data.profiles[pid].nombre}` : ''} · ${formatDay(fecha, { weekday: 'long', day: 'numeric' })}`;
 
   if (mode === 'fav')
     return (
       <FavoritePickSheet
         block={bloque}
+        para={pid}
         onClose={() => setMode('menu')}
         onPick={(m) => {
-          setDaySlot(bloque, { meal: m }, fecha);
+          placeMeal(m, fecha);
           onToast(`${m.nombre} → ${title}`);
           onClose();
         }}
@@ -248,10 +377,11 @@ function SlotSheet({
   if (mode === 'free')
     return (
       <FreeMealSheet
+        para={pid}
         initial={isFree(s) ? s : undefined}
         onClose={() => setMode('menu')}
         onSave={(f) => {
-          setDaySlot(bloque, f, fecha);
+          save(f);
           onClose();
         }}
       />
@@ -262,7 +392,7 @@ function SlotSheet({
         title={`Copiar ${bloque} a…`}
         onClose={() => setMode('menu')}
         onPick={(d) => {
-          setDaySlot(bloque, structuredClone(s), d);
+          save(structuredClone(s), d);
           onToast(`Copiado a ${formatDay(d)} (${bloque})`);
           onClose();
         }}
@@ -271,13 +401,12 @@ function SlotSheet({
 
   return (
     <Sheet title={title} onClose={onClose}>
-      {s && !isFree(s) && (
-        <MealEditor meal={s.meal} targets={targets} onChange={(m) => setDaySlot(bloque, { meal: m }, fecha)} onToast={onToast} />
-      )}
+      {s && !isFree(s) && <MealEditor meal={s.meal} targets={targets} onChange={(m) => save({ meal: m })} onToast={onToast} />}
       {s && isFree(s) && <div className="card tight">🍕 Comida libre{s.descripcion ? `: ${s.descripcion}` : ''}</div>}
       <div className="col">
         <button className="btn primary" onClick={onGenerate}>
           ⚙️ {s ? 'Generar otra' : 'Generar'}
+          {pid ? ` (solo ${data.profiles[pid].nombre})` : ''}
         </button>
         <button className="btn" onClick={() => setMode('fav')}>
           ★ Elegir favorito
@@ -290,11 +419,34 @@ function SlotSheet({
             ⧉ Copiar a otro día
           </button>
         )}
+        {!pid && (
+          <button
+            className="btn"
+            onClick={() => {
+              splitBlock(bloque, fecha);
+              onToast('Bloque separado: elige la comida de cada uno');
+              onClose();
+            }}
+          >
+            ✂️ Cada uno lo suyo
+          </button>
+        )}
+        {pid && isSplit(day, bloque) && (
+          <button
+            className="btn"
+            onClick={() => {
+              joinBlock(bloque, fecha);
+              onClose();
+            }}
+          >
+            🔗 Juntar en una comida para los dos
+          </button>
+        )}
         {s && (
           <button
             className="btn danger"
             onClick={() => {
-              setDaySlot(bloque, undefined, fecha);
+              save(undefined);
               onClose();
             }}
           >

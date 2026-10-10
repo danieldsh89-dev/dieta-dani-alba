@@ -37,6 +37,7 @@ export function unstampedChanges(d: AppData): { changed: string[]; deleted: stri
   d.semanasTipo.forEach((w) => check('week', w.id));
   Object.keys(d.mercadona.links).forEach((id) => check('mlink', id));
   check('mconf', 'all');
+  Object.keys(d.mercadona.habituales).forEach((id) => check('mhab', id));
   check('pantry', 'all');
   check('shopping', 'all');
   check('shared', 'all');

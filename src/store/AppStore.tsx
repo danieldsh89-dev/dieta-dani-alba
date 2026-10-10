@@ -14,6 +14,7 @@ import type {
   Settings,
   ExtraItem,
   MercaConfig,
+  MercaHabitual,
   MercaLink,
 } from '../types';
 import { PROFILE_IDS } from '../types';
@@ -73,6 +74,7 @@ interface Store {
   removeWeekTemplate: (id: string) => void;
   setMercaConfig: (patch: Partial<MercaConfig>) => void;
   setMercaLink: (foodId: string, link: MercaLink | undefined) => void;
+  setMercaHabitual: (id: string, h: MercaHabitual | undefined) => void;
   setPantry: (ids: string[]) => void;
   setShoppingChecked: (ids: string[]) => void;
   importData: (json: string) => void;
@@ -356,6 +358,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setMercaHabitual = useCallback((id: string, h: MercaHabitual | undefined) => {
+    setData((d) => {
+      const habituales = { ...d.mercadona.habituales };
+      if (h) habituales[id] = h;
+      else delete habituales[id];
+      const next = { ...d, mercadona: { ...d.mercadona, habituales } };
+      return h ? touch(next, [key('mhab', id)]) : tombstone(next, [key('mhab', id)]);
+    });
+  }, []);
+
   const copyDay = useCallback((from: string, to: string) => {
     setData((d) => {
       const src = d.history.find((h) => h.fecha === from);
@@ -393,6 +405,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ...next.semanasTipo.map((w) => key('week', w.id)),
         ...Object.keys(next.mercadona.links).map((id) => key('mlink', id)),
         key('mconf', 'all'),
+        ...Object.keys(next.mercadona.habituales).map((id) => key('mhab', id)),
         key('pantry', 'all'),
         key('shared', 'all'),
       ];
@@ -540,6 +553,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     removeWeekTemplate,
     setMercaConfig,
     setMercaLink,
+    setMercaHabitual,
     setPantry,
     setShoppingChecked,
     importData,

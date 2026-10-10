@@ -3,9 +3,9 @@
  * y una marca de tiempo. Gana la versión más reciente (last-writer-wins) por documento.
  * Funciones puras: sin red ni React (testeadas en __tests__/sync.test.ts).
  */
-import type { AppData, DayLog, Favorite, Food, CookingConversion, MercaConfig, MercaLink, Profile, ProfileId, Rating, SyncState, WeekTemplate, WeightEntry } from '../types';
+import type { AppData, DayLog, Favorite, Food, CookingConversion, MercaConfig, MercaHabitual, MercaLink, Profile, ProfileId, Rating, SyncState, WeekTemplate, WeightEntry } from '../types';
 
-export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating' | 'week' | 'mlink' | 'mconf';
+export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating' | 'week' | 'mlink' | 'mconf' | 'mhab';
 
 /** id del documento de peso: perfil:fecha */
 export const weightId = (w: Pick<WeightEntry, 'profile' | 'fecha'>) => `${w.profile}:${w.fecha}`;
@@ -97,6 +97,8 @@ export function readDoc(d: AppData, kind: DocKind, id: string): unknown {
       return d.mercadona.links[id];
     case 'mconf':
       return d.mercadona.config;
+    case 'mhab':
+      return d.mercadona.habituales[id];
   }
 }
 
@@ -191,6 +193,8 @@ function writeDoc(d: AppData, kind: DocKind, id: string, data: unknown): AppData
       return { ...d, mercadona: { ...d.mercadona, links: { ...d.mercadona.links, [id]: data as MercaLink } } };
     case 'mconf':
       return { ...d, mercadona: { ...d.mercadona, config: { ...(data as MercaConfig) } } };
+    case 'mhab':
+      return { ...d, mercadona: { ...d.mercadona, habituales: { ...d.mercadona.habituales, [id]: data as MercaHabitual } } };
   }
 }
 
@@ -217,6 +221,11 @@ function removeDoc(d: AppData, kind: DocKind, id: string): AppData {
       const links = { ...d.mercadona.links };
       delete links[id];
       return { ...d, mercadona: { ...d.mercadona, links } };
+    }
+    case 'mhab': {
+      const habituales = { ...d.mercadona.habituales };
+      delete habituales[id];
+      return { ...d, mercadona: { ...d.mercadona, habituales } };
     }
     default:
       return d;

@@ -19,6 +19,7 @@ import {
 } from '../../integrations/mercadona/basket';
 import { MercadonaClient, MercaError, toMercaProduct, customerFromJwt } from '../../integrations/mercadona/client';
 import { loadIntoCart } from '../../integrations/mercadona/service';
+import * as H from '../../integrations/mercadona/habituales';
 import { decodeLinkCode, encodeLinkCode } from '../../integrations/mercadona/session';
 import type { HttpRequest, HttpResponse } from '../../integrations/mercadona/http';
 
@@ -242,5 +243,48 @@ describe('código de vinculación', () => {
     expect(decodeLinkCode('abcdefghijklmnopqrstuvwxyz0123')?.refreshToken).toBe('abcdefghijklmnopqrstuvwxyz0123');
     expect(decodeLinkCode('hola')).toBeNull();
     expect(customerFromJwt(jwt('uuid-9'))).toBe('uuid-9');
+  });
+});
+
+describe('otros productos habituales', () => {
+  const prod = (over: Partial<MercaProduct> = {}): MercaProduct => ({
+    id: '9001', nombre: 'Lavavajillas', unitSize: 1, sizeFormat: 'ud', unitPrice: 3.2, approx: false, sellingMethod: 0, minBunch: 1, incBunch: 1, actualizado: '2026-10-01', ...over,
+  });
+
+  it('nuevo: apuntado, entra en la compra; al comprar aprende fecha y deja de estar apuntado', () => {
+    const h = H.nuevoHabitual(prod(), '2026-10-10');
+    expect(H.estado(h, '2026-10-18')).toBe('apuntado');
+    const c = H.registrarCompra({ ...h, qty: 2 }, '2026-10-10');
+    expect(c.apuntado).toBe(false);
+    expect(c.qty).toBe(2);
+    expect(H.estado(c, '2026-10-18')).toBe('no'); // sin frecuencia: solo cuando se apunte
+  });
+
+  it('frecuencia fija: toca cuando vence dentro de la compra', () => {
+    const h = { ...H.nuevoHabitual(prod(), '2026-09-01'), apuntado: false, cadaDias: 14, compras: ['2026-10-01'] };
+    expect(H.proxima(h)).toBe('2026-10-15');
+    expect(H.estado(h, '2026-10-12')).toBe('pronto');
+    expect(H.estado(h, '2026-10-18')).toBe('toca');
+    const p = H.posponer(h, '2026-10-18');
+    expect(H.estado(p, '2026-10-18')).not.toBe('toca');
+    expect(H.proxima(p)).toBe('2026-10-19');
+  });
+
+  it('aprende el ritmo real (mediana) y lo prefiere a la frecuencia fijada', () => {
+    const h = { ...H.nuevoHabitual(prod(), '2026-08-01'), apuntado: false, cadaDias: 14, compras: ['2026-08-01', '2026-08-22', '2026-09-12'] };
+    expect(H.intervaloAprendido(h.compras)).toEqual({ dias: 21, n: 2 });
+    expect(H.frecuencia(h)).toMatchObject({ dias: 21, aprendida: true });
+    expect(H.proxima(h)).toBe('2026-10-03');
+    expect(H.frecuencia({ ...h, aprender: false }).dias).toBe(14);
+    // una compra rara no lo descoloca (mediana)
+    expect(H.intervaloAprendido([...h.compras, '2026-09-15', '2026-10-06'])!.dias).toBe(21);
+    expect(H.gastoMes(h)).toBeCloseTo(4.57, 2); // 3,20 € cada 21 días
+  });
+
+  it('se carga junto a la cesta del plan sumando cantidades del mismo producto', () => {
+    const h = { ...H.nuevoHabitual(prod({ id: '2787' }), '2026-10-10'), qty: 1 };
+    const lines = H.combineLines([{ productId: '2787', quantity: 2 }], [H.habitualCartLine(h)]);
+    expect(lines).toEqual([{ productId: '2787', quantity: 3 }]);
+    expect(basketText([], 'T', [H.habitualCartLine(h)])).toContain('Otros:');
   });
 });

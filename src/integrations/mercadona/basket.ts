@@ -139,6 +139,17 @@ export function cartLines(lines: BasketLine[]): CartLine[] {
   return [...map.values()];
 }
 
+/** Une líneas de carrito sumando cantidades del mismo producto. */
+export function combineLines(...groups: CartLine[][]): CartLine[] {
+  const map = new Map<string, CartLine>();
+  for (const l of groups.flat()) {
+    const prev = map.get(l.productId);
+    if (prev) prev.quantity = Math.round((prev.quantity + l.quantity) * 1000) / 1000;
+    else map.set(l.productId, { ...l });
+  }
+  return [...map.values()];
+}
+
 /** Fusiona con el carrito actual: "set" de nuestros productos, conserva el resto; o reemplaza todo. */
 export function mergeCart(current: CartLine[], desired: CartLine[], mode: 'sumar' | 'reemplazar'): CartLine[] {
   if (mode === 'reemplazar') return desired.map((l) => ({ ...l }));
@@ -301,7 +312,7 @@ export function qtyText(l: BasketLine): string {
 }
 
 /** Lista legible para buscar a mano en la app de Mercadona (alternativa sin API). */
-export function basketText(lines: BasketLine[], title: string): string {
+export function basketText(lines: BasketLine[], title: string, otros: CartLine[] = []): string {
   const out = [title, ''];
   for (const l of lines) {
     if (l.status === 'quitado' || l.status === 'otra_tienda') continue;
@@ -312,15 +323,20 @@ export function basketText(lines: BasketLine[], title: string): string {
       out.push(`${mark} ${l.food.nombre} — ${l.item.unit === 'unidad' ? `${l.item.unidades} ud` : `${l.item.comprar} ${l.item.unit}`} (sin producto)`);
     }
   }
-  out.push('', `Total estimado: ${eur(basketTotal(lines))}`);
+  if (otros.length) {
+    out.push('', 'Otros:');
+    for (const o of otros) out.push(`☐ ${o.nombre ?? o.productId} × ${o.quantity.toLocaleString('es-ES')} — ${eur(round2(o.quantity * (o.unitPrice ?? 0)))}`);
+  }
+  const extra = otros.reduce((t, o) => t + o.quantity * (o.unitPrice ?? 0), 0);
+  out.push('', `Total estimado: ${eur(round2(basketTotal(lines) + extra))}`);
   const otra = lines.filter((l) => l.status === 'otra_tienda');
   if (otra.length) out.push('', `En otra tienda: ${otra.map((l) => l.food.nombre.split(' (')[0]).join(', ')}`);
   return out.join('\n');
 }
 
 /** Formato de mercadona-cli: "<id> <cantidad> # nombre" (para `mercadona cart set-many -f cesta.txt`). */
-export function cliText(lines: BasketLine[]): string {
-  return cartLines(lines)
+export function cliText(lines: BasketLine[], otros: CartLine[] = []): string {
+  return combineLines(cartLines(lines), otros)
     .map((l) => `${l.productId} ${l.quantity} # ${l.nombre ?? ''}`)
     .join('\n');
 }

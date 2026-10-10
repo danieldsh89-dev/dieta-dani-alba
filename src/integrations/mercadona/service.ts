@@ -3,7 +3,8 @@
  */
 import type { MercaConfig } from '../../types';
 import { MercadonaClient, MercaError, ERROR_HELP, type Cart } from './client';
-import { cartLines, estimateCart, mergeCart, type BasketLine } from './basket';
+import { cartLines, combineLines, estimateCart, mergeCart, type BasketLine } from './basket';
+import type { CartLine } from './client';
 import { loadSession, saveSession } from './session';
 import { isNative, type Transport } from './http';
 
@@ -31,9 +32,11 @@ export async function loadIntoCart(
   lines: BasketLine[],
   mode: 'sumar' | 'reemplazar',
   maxEur?: number,
+  /** otros productos (habituales) que no salen del plan */
+  otros: CartLine[] = [],
 ): Promise<LoadResult> {
-  const desired = cartLines(lines);
-  if (!desired.length) throw new MercaError('desconocido', 'No hay productos vinculados en la cesta');
+  const desired = combineLines(cartLines(lines), otros);
+  if (!desired.length) throw new MercaError('desconocido', 'No hay productos en la cesta');
   const cart = await client.getCart();
   const merged = mergeCart(cart.lines, desired, mode);
   const known = Object.fromEntries(desired.map((d) => [d.productId, d.unitPrice ?? 0]));

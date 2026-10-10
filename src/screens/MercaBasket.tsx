@@ -18,6 +18,9 @@ import { loadIntoCart, makeClient, type LoadResult } from '../integrations/merca
 import { isNative } from '../integrations/mercadona/http';
 import { loadSession } from '../integrations/mercadona/session';
 import { MercaLinkSheet } from '../components/MercaLinkSheet';
+import { OtrosCard } from './MercaOtros';
+import { enEstaCompra, habitualCartLine, registrarCompra } from '../integrations/mercadona/habituales';
+import { todayKey } from '../lib/day';
 import { Sheet, Warnings } from '../components/ui';
 import { shareText } from './SyncScreen';
 
@@ -37,7 +40,7 @@ export function MercaBasketView({
   onToast: (t: string) => void;
   onOpenSettings: () => void;
 }) {
-  const { data, fm, cm, setMercaLink, setMercaConfig } = useStore();
+  const { data, fm, cm, setMercaLink, setMercaConfig, setMercaHabitual } = useStore();
   const [quitar, setQuitar] = useState<BasketLine | null>(null);
   const [verOtra, setVerOtra] = useState(false);
   const otraTienda = data.mercadona.config.otraTienda ?? [];
@@ -59,7 +62,11 @@ export function MercaBasketView({
     () => buildBasket(items, data.mercadona.links, { pantry: data.pantry, incluirEnCasa, quitados, ajustes, otraTienda }),
     [items, data.mercadona.links, data.pantry, incluirEnCasa, quitados, ajustes, otraTienda],
   );
-  const total = basketTotal(lines);
+  const otrosHabs = Object.values(data.mercadona.habituales).filter((h) => enEstaCompra(h, to));
+  const otros = otrosHabs.map(habitualCartLine);
+  const totalOtros = Math.round(otros.reduce((t, o) => t + o.quantity * (o.unitPrice ?? 0), 0) * 100) / 100;
+  const total = Math.round((basketTotal(lines) + totalOtros) * 100) / 100;
+  const nProductos = lines.filter((l) => l.status === 'ok').length + otros.length;
   const sinVincular = lines.filter((l) => l.status === 'sin_vincular');
   const sugeridos = lines.filter((l) => l.link && !l.link.confirmado);
   const native = isNative();
@@ -128,7 +135,10 @@ export function MercaBasketView({
     setBusy('Cargando en tu carrito de Mercadona…');
     setError(null);
     try {
-      const r = await loadIntoCart(makeClient(data.mercadona.config), lines, mode, max);
+      const r = await loadIntoCart(makeClient(data.mercadona.config), lines, mode, max, otros);
+      // aprender: fecha y cantidad de cada producto habitual comprado
+      const hoy = todayKey();
+      otrosHabs.forEach((h) => setMercaHabitual(h.id, registrarCompra(h, hoy)));
       setDone(r);
     } catch (e) {
       fail(e);
@@ -137,7 +147,13 @@ export function MercaBasketView({
     }
   };
 
-  if (!meals.length) return <div className="empty">No hay comidas planificadas en esas fechas. Planifícalas en “Semana”.</div>;
+  if (!meals.length && !Object.keys(data.mercadona.habituales).length)
+    return (
+      <>
+        <div className="empty">No hay comidas planificadas en esas fechas. Planifícalas en “Semana”.</div>
+        <OtrosCard hasta={to} onToast={onToast} />
+      </>
+    );
 
   const visibles = lines.filter((l) => l.status !== 'otra_tienda' && (l.status !== 'en_casa' || incluirEnCasa));
   const otras = lines.filter((l) => l.status === 'otra_tienda');
@@ -160,7 +176,7 @@ export function MercaBasketView({
           ) : null}
         </div>
         <div className="tiny muted">
-          {lines.filter((l) => l.status === 'ok').length} productos · precios del almacén {data.mercadona.config.wh}. Las bandejas de carne y la fruta
+          {nProductos} productos{otros.length ? ` (${otros.length} otros)` : ''} · precios del almacén {data.mercadona.config.wh}. Las bandejas de carne y la fruta
           por piezas tienen peso aproximado: el precio final puede variar un poco.
         </div>
         {sinVincular.length > 0 && (
@@ -219,6 +235,7 @@ export function MercaBasketView({
             ))}
         </div>
       )}
+      <OtrosCard hasta={to} onToast={onToast} />
       {enCasa.length > 0 && (
         <label className="check small">
           <input type="checkbox" checked={incluirEnCasa} onChange={(e) => setIncluirEnCasa(e.target.checked)} />
@@ -250,7 +267,7 @@ export function MercaBasketView({
           <button
             className="btn small"
             onClick={async () => {
-              const r = await shareText(basketText(lines, title), title);
+              const r = await shareText(basketText(lines, title, otros), title);
               onToast(r === 'copied' ? 'Lista copiada' : r === 'shared' ? 'Lista compartida' : 'No se pudo compartir');
             }}
           >
@@ -259,7 +276,7 @@ export function MercaBasketView({
           <button
             className="btn small"
             onClick={async () => {
-              const r = await shareText(cliText(lines), 'cesta.txt para mercadona-cli');
+              const r = await shareText(cliText(lines, otros), 'cesta.txt para mercadona-cli');
               onToast(r === 'copied' ? 'Cesta copiada (formato mercadona-cli)' : r === 'shared' ? 'Cesta compartida' : 'No se pudo compartir');
             }}
           >
@@ -307,7 +324,7 @@ export function MercaBasketView({
       {confirm && (
         <Sheet title="Cargar en tu carrito" onClose={() => setConfirm(false)}>
           <div>
-            Se cargarán <b>{lines.filter((l) => l.status === 'ok').length} productos</b> por unos <b>{eur(total)}</b>
+            Se cargarán <b>{nProductos} productos</b> por unos <b>{eur(total)}</b>
             {max ? ` (tope ${eur(max)})` : ''}.
           </div>
           {sugeridos.length > 0 && <Warnings items={[`Hay ${sugeridos.length} producto(s) sin confirmar. Revisa que sean los que quieres.`]} />}

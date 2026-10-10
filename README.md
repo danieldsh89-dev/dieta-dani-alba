@@ -254,3 +254,13 @@ Plan → Compra → 🛒 Mercadona → **✨ Proponer productos** (la primera ve
 - **Ajustes avanzados**: "Redescubrir buscador" (si Mercadona cambia sus claves de búsqueda), x-version, restaurar valores.
 - El código vive en `src/integrations/mercadona/` (cliente, cesta, sesión) con tests en `src/lib/__tests__/mercadona.test.ts`.
 - Es una API no oficial: puede cambiar sin aviso. En la web (GitHub Pages) solo funciona la búsqueda; carrito y cuenta requieren el APK.
+
+## Novedades v1.5 — Otros productos en la compra
+
+En Plan → Compra → 🛒 Mercadona, la tarjeta **🧴 Otros productos** permite añadir cosas que no salen del plan (limpieza, higiene, casa…):
+
+- **➕ Añadir** busca cualquier producto de Mercadona; queda como *habitual* y apuntado para esta compra.
+- Cada habitual tiene frecuencia (cuando lo apunte, 1–3 semanas, 1–3 meses) y la opción **aprender**: con 3 compras usa la mediana de vuestros intervalos reales; si lo quitáis cuando tocaba, se pospone y el ritmo aprendido se alarga.
+- Lo que toca (o está apuntado) entra solo en la cesta, en el total y en el carrito; la cantidad se recuerda.
+- "✓ Lo compré hoy" anota compras hechas fuera de la app. Se ve el gasto ≈ €/mes.
+- Los habituales se sincronizan: Alba puede apuntar "falta suavizante" desde su móvil.

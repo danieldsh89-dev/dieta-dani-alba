@@ -119,3 +119,60 @@ export function ProductRow({ p }: { p: MercaProduct }) {
     </span>
   );
 }
+
+/** Buscar cualquier producto de Mercadona (otros productos fuera del plan). */
+export function MercaProductPicker({
+  title,
+  onPick,
+  onClose,
+}: {
+  title: string;
+  onPick: (p: MercaProduct) => void;
+  onClose: () => void;
+}) {
+  const { data } = useStore();
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<MercaProduct[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const search = async (text: string) => {
+    if (!text.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await makeClient(data.mercadona.config).search(text, 15);
+      setHits(r.map((h) => h.product));
+    } catch (e) {
+      setError(e instanceof MercaError ? e.message : ERROR_HELP.sin_red);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Sheet title={title} onClose={onClose}>
+      <form
+        className="row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          search(q);
+        }}
+      >
+        <input type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="p. ej. lavavajillas, papel higiénico…" />
+        <button className="btn primary" type="submit" disabled={loading || !q.trim()}>
+          {loading ? '…' : 'Buscar'}
+        </button>
+      </form>
+      {error && <Warnings items={[{ level: 'error', text: error }]} />}
+      <div className="list">
+        {(hits ?? []).map((p) => (
+          <button key={p.id} className="list-item" onClick={() => onPick(p)}>
+            <ProductRow p={p} />
+          </button>
+        ))}
+        {hits && hits.length === 0 && <div className="empty">Sin resultados. Prueba con otras palabras.</div>}
+      </div>
+    </Sheet>
+  );
+}

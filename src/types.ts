@@ -253,6 +253,26 @@ export interface MercaProduct {
   actualizado: string;
 }
 
+/** Producto habitual de Mercadona fuera del plan (limpieza, higiene, casa…); se comparte entre móviles */
+export interface MercaHabitual {
+  /** id del producto de Mercadona */
+  id: string;
+  product: MercaProduct;
+  /** cantidad habitual (se actualiza con la última comprada); kg si es a granel */
+  qty: number;
+  /** frecuencia fijada a mano, en días (sin ella: solo cuando se apunta) */
+  cadaDias?: number;
+  /** aprender la frecuencia de las compras */
+  aprender: boolean;
+  /** fechas (YYYY-MM-DD) en que se compró, de más antigua a más reciente */
+  compras: string[];
+  /** apuntado para la próxima compra */
+  apuntado?: boolean;
+  /** se quitó cuando tocaba: no vuelve a salir hasta esta fecha */
+  pospuesto?: string;
+  creado: string;
+}
+
 /** Alimento de la app ↔ producto de Mercadona (se comparte entre móviles) */
 export interface MercaLink {
   foodId: string;
@@ -346,7 +366,7 @@ export interface AppData {
   ratings: Record<string, Rating>;
   semanasTipo: WeekTemplate[];
   /** integración Mercadona: configuración y productos vinculados */
-  mercadona: { config: MercaConfig; links: Record<string, MercaLink> };
+  mercadona: { config: MercaConfig; links: Record<string, MercaLink>; habituales: Record<string, MercaHabitual> };
   settings: Settings;
   sync: SyncState;
 }

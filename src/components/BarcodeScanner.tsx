@@ -11,7 +11,17 @@ interface DetectorLike {
  * Usa BarcodeDetector nativo si existe (Chrome Android) y si no, ZXing (cargado bajo demanda).
  * Siempre permite escribir el código a mano.
  */
-export function BarcodeScanner({ onDetected, onClose }: { onDetected: (code: string) => void; onClose: () => void }) {
+export function BarcodeScanner({
+  onDetected,
+  onClose,
+  mode = 'barcode',
+}: {
+  onDetected: (code: string) => void;
+  onClose: () => void;
+  /** 'barcode' = EAN de productos; 'qr' = cualquier QR (p. ej. el código de vinculación de Mercadona) */
+  mode?: 'barcode' | 'qr';
+}) {
+  const accept = (t: string) => (mode === 'qr' ? t.trim().length > 10 : isValidBarcode(t) || /^\d{6,14}$/.test(t));
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState('');
@@ -45,12 +55,12 @@ export function BarcodeScanner({ onDetected, onClose }: { onDetected: (code: str
           const video = videoRef.current!;
           video.srcObject = stream;
           await video.play();
-          const detector = new Native({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+          const detector = new Native({ formats: mode === 'qr' ? ['qr_code'] : ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
           const loop = async () => {
             if (cancelled || done.current) return;
             try {
               const codes = await detector.detect(video);
-              const ok = codes.map((c) => c.rawValue).find((c) => isValidBarcode(c) || /^\d{6,14}$/.test(c));
+              const ok = codes.map((c) => c.rawValue).find(accept);
               if (ok) return finish(ok);
             } catch {
               /* frame no listo */
@@ -66,7 +76,7 @@ export function BarcodeScanner({ onDetected, onClose }: { onDetected: (code: str
             videoRef.current!,
             (result) => {
               const text = result?.getText();
-              if (text && /^\d{6,14}$/.test(text)) finish(text);
+              if (text && accept(text)) finish(text);
             },
           );
           stopZxing = () => controls.stop();
@@ -92,7 +102,7 @@ export function BarcodeScanner({ onDetected, onClose }: { onDetected: (code: str
 
   const code = manual.replace(/\D/g, '');
   return (
-    <Sheet title="Escanear código de barras" onClose={onClose}>
+    <Sheet title={mode === 'qr' ? 'Escanear código QR' : 'Escanear código de barras'} onClose={onClose}>
       <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000', aspectRatio: '4 / 3' }}>
         <video ref={videoRef} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         <div
@@ -108,8 +118,11 @@ export function BarcodeScanner({ onDetected, onClose }: { onDetected: (code: str
           }}
         />
       </div>
-      <div className="sub">Enfoca el código de barras del envase dentro del recuadro.</div>
+      <div className="sub">
+        {mode === 'qr' ? 'Enfoca el código QR que se ve en la pantalla del PC.' : 'Enfoca el código de barras del envase dentro del recuadro.'}
+      </div>
       {error && <Warnings items={[error]} />}
+      {mode === 'barcode' && (
       <div className="row">
         <input
           type="text"
@@ -122,7 +135,8 @@ export function BarcodeScanner({ onDetected, onClose }: { onDetected: (code: str
           Buscar
         </button>
       </div>
-      {code.length >= 8 && !isValidBarcode(code) && <div className="tiny muted">Ese código no parece un EAN válido; se buscará igualmente.</div>}
+      )}
+      {mode === 'barcode' && code.length >= 8 && !isValidBarcode(code) && <div className="tiny muted">Ese código no parece un EAN válido; se buscará igualmente.</div>}
     </Sheet>
   );
 }

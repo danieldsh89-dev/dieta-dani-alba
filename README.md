@@ -229,3 +229,28 @@ la clave secreta del hogar (24 caracteres aleatorios). Quien tenga el código de
 - **📋 Semanas tipo** (Plan → Semana): guarda una semana y aplícala a otra (rellenar huecos o reemplazar).
 - **✕ Quitar ingrediente** directamente en cada fila al editar o generar.
 - **Botón atrás de Android** dentro de la app: cierra la ventana abierta, vuelve de pantalla y, en Hoy, sale.
+
+## Novedades v1.4 — Compra en Mercadona
+
+Plan → Compra → **🛒 Mercadona** convierte la lista de la compra en productos de Mercadona y (en la app instalada) los **carga en tu carrito**. Nunca hace el pedido ni paga: eso lo haces tú en la app/web de Mercadona.
+
+### Configurar una sola vez (desde el PC)
+
+1. Chrome → `tienda.mercadona.es` → **F12** → pestaña **Network** → inicia sesión normalmente.
+2. Con la sesión iniciada: clic derecho en la lista de Network → **Save all as HAR**.
+3. En la carpeta del proyecto: `npm run mercadona:vincular -- "C:\ruta\archivo.har"` → se abre una página con un QR (se borra sola en 10 min).
+4. En el móvil: **Más → Mercadona → 📷 Escanear QR del PC**. Borra el archivo HAR.
+
+La sesión se guarda **solo en ese móvil** (no se sincroniza, no se exporta, no va a GitHub) y se renueva sola. Solo hay que repetirlo si Mercadona cierra la sesión (cambio de contraseña, "cerrar sesión en todos los dispositivos").
+
+### Uso semanal
+
+Plan → Compra → 🛒 Mercadona → **✨ Proponer productos** (la primera vez; luego se recuerdan) → revisa cantidades/quitar/"en casa" → **🛒 Cargar en mi carrito** (sumar o reemplazar, respeta el tope de gasto) → **Abrir Mercadona** y paga allí.
+
+### Si algo falla
+
+- **📋 Copiar lista con productos** / **💻 Exportar para el PC**: funcionan siempre, sin cuenta.
+- **Más → Mercadona → 🩺 Diagnóstico**: prueba buscador, código postal, sesión y lectura del carrito sin modificar nada.
+- **Ajustes avanzados**: "Redescubrir buscador" (si Mercadona cambia sus claves de búsqueda), x-version, restaurar valores.
+- El código vive en `src/integrations/mercadona/` (cliente, cesta, sesión) con tests en `src/lib/__tests__/mercadona.test.ts`.
+- Es una API no oficial: puede cambiar sin aviso. En la web (GitHub Pages) solo funciona la búsqueda; carrito y cuenta requieren el APK.

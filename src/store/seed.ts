@@ -53,6 +53,7 @@ export function createSeedData(): AppData {
     pesos: [],
     ratings: {},
     semanasTipo: [],
+    mercadona: { config: { cp: '35215', wh: '4418', maxEur: 150 }, links: {} },
     settings: { ...DEFAULT_SETTINGS },
     sync: emptySync(),
   };
@@ -100,6 +101,10 @@ function mergeRaw(saved: AppData): AppData {
     pesos: saved.pesos ?? [],
     ratings: saved.ratings ?? {},
     semanasTipo: saved.semanasTipo ?? [],
+    mercadona: {
+      config: { ...seed.mercadona.config, ...saved.mercadona?.config },
+      links: saved.mercadona?.links ?? {},
+    },
   };
 }
 

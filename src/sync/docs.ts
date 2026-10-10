@@ -3,9 +3,9 @@
  * y una marca de tiempo. Gana la versión más reciente (last-writer-wins) por documento.
  * Funciones puras: sin red ni React (testeadas en __tests__/sync.test.ts).
  */
-import type { AppData, DayLog, Favorite, Food, CookingConversion, Profile, ProfileId, Rating, SyncState, WeekTemplate, WeightEntry } from '../types';
+import type { AppData, DayLog, Favorite, Food, CookingConversion, MercaConfig, MercaLink, Profile, ProfileId, Rating, SyncState, WeekTemplate, WeightEntry } from '../types';
 
-export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating' | 'week';
+export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating' | 'week' | 'mlink' | 'mconf';
 
 /** id del documento de peso: perfil:fecha */
 export const weightId = (w: Pick<WeightEntry, 'profile' | 'fecha'>) => `${w.profile}:${w.fecha}`;
@@ -93,6 +93,10 @@ export function readDoc(d: AppData, kind: DocKind, id: string): unknown {
       return d.ratings[id];
     case 'week':
       return d.semanasTipo.find((w) => w.id === id);
+    case 'mlink':
+      return d.mercadona.links[id];
+    case 'mconf':
+      return d.mercadona.config;
   }
 }
 
@@ -183,6 +187,10 @@ function writeDoc(d: AppData, kind: DocKind, id: string, data: unknown): AppData
       return { ...d, ratings: { ...d.ratings, [id]: data as Rating } };
     case 'week':
       return { ...d, semanasTipo: upsertById(d.semanasTipo, data as WeekTemplate, (w) => w.id) };
+    case 'mlink':
+      return { ...d, mercadona: { ...d.mercadona, links: { ...d.mercadona.links, [id]: data as MercaLink } } };
+    case 'mconf':
+      return { ...d, mercadona: { ...d.mercadona, config: { ...(data as MercaConfig) } } };
   }
 }
 
@@ -205,6 +213,11 @@ function removeDoc(d: AppData, kind: DocKind, id: string): AppData {
     }
     case 'week':
       return { ...d, semanasTipo: d.semanasTipo.filter((w) => w.id !== id) };
+    case 'mlink': {
+      const links = { ...d.mercadona.links };
+      delete links[id];
+      return { ...d, mercadona: { ...d.mercadona, links } };
+    }
     default:
       return d;
   }

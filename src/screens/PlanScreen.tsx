@@ -24,11 +24,12 @@ import { NameSheet } from '../components/NameSheet';
 import { NumberInput, Segmented, Sheet, Warnings, CATEGORY_ICONS } from '../components/ui';
 import { FavoritePickSheet, FreeMealSheet } from './HomeScreen';
 import { shareText } from './SyncScreen';
+import { MercaBasketView } from './MercaBasket';
 
 type View = 'semana' | 'compra' | 'cocinar';
 
 /** Recuerda la vista/semana/rango al cambiar de pestaña (p. ej. al ir a Generar y volver). */
-const memo: { view?: View; anchor?: string; from?: string; to?: string } = {};
+const memo: { view?: View; anchor?: string; from?: string; to?: string; compra?: 'lista' | 'mercadona' } = {};
 
 function useRemembered<T>(k: keyof typeof memo, initial: T): [T, (v: T) => void] {
   const [v, setV] = useState<T>((memo[k] as T) ?? initial);
@@ -43,11 +44,14 @@ function useRemembered<T>(k: keyof typeof memo, initial: T): [T, (v: T) => void]
 
 export function PlanScreen({
   onGenerate,
+  onOpenMercadona,
   onToast,
 }: {
   onGenerate: (b: Block, fecha: string, para: ProfileId | 'ambos') => void;
+  onOpenMercadona: () => void;
   onToast: (t: string) => void;
 }) {
+  const [compra, setCompra] = useRemembered<'lista' | 'mercadona'>('compra', 'lista');
   const today = todayKey();
   const [view, setView] = useRemembered<View>('view', 'semana');
   const [anchor, setAnchor] = useRemembered('anchor', today);
@@ -68,7 +72,21 @@ export function PlanScreen({
       />
       {view === 'semana' && <WeekView anchor={anchor} setAnchor={setAnchor} onGenerate={onGenerate} onToast={onToast} />}
       {view !== 'semana' && <RangePicker from={from} to={to} setFrom={setFrom} setTo={setTo} />}
-      {view === 'compra' && <ShoppingView from={from} to={to} onToast={onToast} />}
+      {view === 'compra' && (
+        <Segmented
+          full
+          value={compra}
+          options={[
+            { value: 'lista', label: '📝 Lista' },
+            { value: 'mercadona', label: '🛒 Mercadona' },
+          ]}
+          onChange={setCompra}
+        />
+      )}
+      {view === 'compra' && compra === 'lista' && <ShoppingView from={from} to={to} onToast={onToast} />}
+      {view === 'compra' && compra === 'mercadona' && (
+        <MercaBasketView from={from} to={to} onToast={onToast} onOpenSettings={onOpenMercadona} />
+      )}
       {view === 'cocinar' && <BatchView from={from} to={to} onToast={onToast} />}
     </div>
   );

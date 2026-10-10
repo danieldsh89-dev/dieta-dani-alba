@@ -13,6 +13,8 @@ import type {
   Rating,
   Settings,
   ExtraItem,
+  MercaConfig,
+  MercaLink,
 } from '../types';
 import { PROFILE_IDS } from '../types';
 import { toConversionMap, type ConversionMap } from '../lib/conversions';
@@ -69,6 +71,8 @@ interface Store {
   saveWeekTemplate: (nombre: string, weekStart: string) => void;
   applyWeekTemplate: (id: string, weekStart: string, mode: 'huecos' | 'reemplazar') => void;
   removeWeekTemplate: (id: string) => void;
+  setMercaConfig: (patch: Partial<MercaConfig>) => void;
+  setMercaLink: (foodId: string, link: MercaLink | undefined) => void;
   setPantry: (ids: string[]) => void;
   setShoppingChecked: (ids: string[]) => void;
   importData: (json: string) => void;
@@ -338,6 +342,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setData((d) => tombstone({ ...d, semanasTipo: d.semanasTipo.filter((w) => w.id !== id) }, [key('week', id)]));
   }, []);
 
+  const setMercaConfig = useCallback((patch: Partial<MercaConfig>) => {
+    setData((d) => touch({ ...d, mercadona: { ...d.mercadona, config: { ...d.mercadona.config, ...patch } } }, [key('mconf', 'all')]));
+  }, []);
+
+  const setMercaLink = useCallback((foodId: string, link: MercaLink | undefined) => {
+    setData((d) => {
+      const links = { ...d.mercadona.links };
+      if (link) links[foodId] = link;
+      else delete links[foodId];
+      const next = { ...d, mercadona: { ...d.mercadona, links } };
+      return link ? touch(next, [key('mlink', foodId)]) : tombstone(next, [key('mlink', foodId)]);
+    });
+  }, []);
+
   const copyDay = useCallback((from: string, to: string) => {
     setData((d) => {
       const src = d.history.find((h) => h.fecha === from);
@@ -373,6 +391,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ...next.pesos.map((w) => key('weight', weightId(w))),
         ...Object.keys(next.ratings).map((id) => key('rating', id)),
         ...next.semanasTipo.map((w) => key('week', w.id)),
+        ...Object.keys(next.mercadona.links).map((id) => key('mlink', id)),
+        key('mconf', 'all'),
         key('pantry', 'all'),
         key('shared', 'all'),
       ];
@@ -518,6 +538,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     saveWeekTemplate,
     applyWeekTemplate,
     removeWeekTemplate,
+    setMercaConfig,
+    setMercaLink,
     setPantry,
     setShoppingChecked,
     importData,

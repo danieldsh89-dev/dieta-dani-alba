@@ -228,6 +228,51 @@ export interface ExtraItem {
   cantidades: Record<ProfileId, number>;
 }
 
+/** Producto del catálogo de Mercadona (datos de la búsqueda / ficha) */
+export interface MercaProduct {
+  id: string;
+  nombre: string;
+  /** envase: Paquete, Bandeja, Pieza… */
+  formato?: string;
+  /** tamaño de una unidad de venta, en `sizeFormat` (kg, l o ud) */
+  unitSize: number;
+  sizeFormat: string;
+  /** precio de una unidad de venta (€) */
+  unitPrice: number;
+  /** precio de referencia (€/kg, €/l…) */
+  refPrice?: number;
+  refFormat?: string;
+  /** peso aproximado (bandejas de carne, fruta por piezas) */
+  approx: boolean;
+  /** 0 = por unidades; otro = a granel (cantidad en kg con mínimo/incremento) */
+  sellingMethod: number;
+  minBunch: number;
+  incBunch: number;
+  thumbnail?: string;
+  /** cuándo se leyó el precio */
+  actualizado: string;
+}
+
+/** Alimento de la app ↔ producto de Mercadona (se comparte entre móviles) */
+export interface MercaLink {
+  foodId: string;
+  product: MercaProduct;
+  /** el usuario lo eligió/confirmó */
+  confirmado: boolean;
+}
+
+/** Configuración de Mercadona (compartida). El token de la cuenta NO va aquí: vive solo en el móvil. */
+export interface MercaConfig {
+  cp?: string;
+  /** almacén de entrega (lo resuelve el código postal) */
+  wh?: string;
+  /** tope de gasto al cargar el carrito (€) */
+  maxEur?: number;
+  /** ajustes avanzados por si Mercadona cambia algo */
+  algolia?: { appId: string; apiKey: string; indexBase: string };
+  xVersion?: string;
+}
+
 /** Semana tipo: 7 días (lunes…domingo) para aplicar a cualquier semana */
 export interface WeekTemplate {
   id: string;
@@ -298,6 +343,8 @@ export interface AppData {
   /** firma de ingredientes → valoración */
   ratings: Record<string, Rating>;
   semanasTipo: WeekTemplate[];
+  /** integración Mercadona: configuración y productos vinculados */
+  mercadona: { config: MercaConfig; links: Record<string, MercaLink> };
   settings: Settings;
   sync: SyncState;
 }

@@ -271,6 +271,8 @@ export interface MercaConfig {
   /** ajustes avanzados por si Mercadona cambia algo */
   algolia?: { appId: string; apiKey: string; indexBase: string };
   xVersion?: string;
+  /** alimentos que no se compran en Mercadona (otra tienda): no entran en la cesta */
+  otraTienda?: string[];
 }
 
 /** Semana tipo: 7 días (lunes…domingo) para aplicar a cualquier semana */

@@ -188,6 +188,19 @@ export function MercadonaScreen({ onToast }: { onToast: (t: string) => void }) {
           </button>
         </div>
         <div className="tiny muted">Se eligen la primera vez desde Plan → Compra → 🛒 Mercadona y se reutilizan siempre.</div>
+        {(cfg.otraTienda ?? []).length > 0 && (
+          <div className="small" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+            <b>🏪 No se compran en Mercadona:</b>
+            {(cfg.otraTienda ?? []).map((id) => (
+              <div key={id} className="row between">
+                <span className="grow">{data.foods.find((f) => f.id === id)?.nombre.split(' (')[0] ?? id}</span>
+                <button className="btn small" onClick={() => setMercaConfig({ otraTienda: (cfg.otraTienda ?? []).filter((x) => x !== id) })}>
+                  ↺ Volver a Mercadona
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         {links &&
           linked
             .sort((a, b) => a.product.nombre.localeCompare(b.product.nombre))

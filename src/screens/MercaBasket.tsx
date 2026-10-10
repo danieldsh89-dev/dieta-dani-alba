@@ -37,7 +37,10 @@ export function MercaBasketView({
   onToast: (t: string) => void;
   onOpenSettings: () => void;
 }) {
-  const { data, fm, cm, setMercaLink } = useStore();
+  const { data, fm, cm, setMercaLink, setMercaConfig } = useStore();
+  const [quitar, setQuitar] = useState<BasketLine | null>(null);
+  const [verOtra, setVerOtra] = useState(false);
+  const otraTienda = data.mercadona.config.otraTienda ?? [];
   const [ajustes, setAjustes] = useState(memo.ajustes);
   const [quitados, setQuitados] = useState(memo.quitados);
   const [incluirEnCasa, setIncluirEnCasa] = useState(memo.incluirEnCasa);
@@ -53,8 +56,8 @@ export function MercaBasketView({
   const meals = useMemo(() => plannedMeals(data.history, datesBetween(from, to)), [data.history, from, to]);
   const items = useMemo(() => shoppingList(meals, fm, cm), [meals, fm, cm]);
   const lines = useMemo(
-    () => buildBasket(items, data.mercadona.links, { pantry: data.pantry, incluirEnCasa, quitados, ajustes }),
-    [items, data.mercadona.links, data.pantry, incluirEnCasa, quitados, ajustes],
+    () => buildBasket(items, data.mercadona.links, { pantry: data.pantry, incluirEnCasa, quitados, ajustes, otraTienda }),
+    [items, data.mercadona.links, data.pantry, incluirEnCasa, quitados, ajustes, otraTienda],
   );
   const total = basketTotal(lines);
   const sinVincular = lines.filter((l) => l.status === 'sin_vincular');
@@ -136,7 +139,13 @@ export function MercaBasketView({
 
   if (!meals.length) return <div className="empty">No hay comidas planificadas en esas fechas. Planifícalas en “Semana”.</div>;
 
-  const visibles = lines.filter((l) => l.status !== 'en_casa' || incluirEnCasa);
+  const visibles = lines.filter((l) => l.status !== 'otra_tienda' && (l.status !== 'en_casa' || incluirEnCasa));
+  const otras = lines.filter((l) => l.status === 'otra_tienda');
+  const setOtra = (foodId: string, on: boolean) => {
+    setMercaConfig({ otraTienda: on ? [...otraTienda.filter((x) => x !== foodId), foodId] : otraTienda.filter((x) => x !== foodId) });
+    const link = data.mercadona.links[foodId];
+    if (on && link && !link.confirmado) setMercaLink(foodId, undefined); // la sugerencia ya no sirve
+  };
   const enCasa = lines.filter((l) => l.status === 'en_casa');
 
   return (
@@ -185,12 +194,31 @@ export function MercaBasketView({
             l={l}
             onLink={() => setLinkFor(l.food)}
             onQty={(q) => setAjustes({ ...ajustes, [l.food.id]: Math.max(0, q) })}
-            onToggle={() =>
-              setQuitados(quitados.includes(l.food.id) ? quitados.filter((x) => x !== l.food.id) : [...quitados, l.food.id])
-            }
+            onToggle={() => (quitados.includes(l.food.id) ? setQuitados(quitados.filter((x) => x !== l.food.id)) : setQuitar(l))}
           />
         ))}
       </div>
+      {otras.length > 0 && (
+        <div className="card tight">
+          <div className="row between small">
+            <span>
+              🏪 En otra tienda ({otras.length}): {otras.map((l) => l.food.nombre.split(' (')[0]).join(', ')}
+            </span>
+            <button className="btn small" onClick={() => setVerOtra(!verOtra)}>
+              {verOtra ? 'Ocultar' : 'Cambiar'}
+            </button>
+          </div>
+          {verOtra &&
+            otras.map((l) => (
+              <div key={l.food.id} className="row between small" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+                <span className="grow">{l.food.nombre}</span>
+                <button className="btn small" onClick={() => setOtra(l.food.id, false)}>
+                  ↺ Comprar en Mercadona
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
       {enCasa.length > 0 && (
         <label className="check small">
           <input type="checkbox" checked={incluirEnCasa} onChange={(e) => setIncluirEnCasa(e.target.checked)} />
@@ -249,6 +277,32 @@ export function MercaBasketView({
         </div>
       </div>
 
+      {quitar && (
+        <Sheet title={quitar.food.nombre.split(' (')[0]} onClose={() => setQuitar(null)}>
+          <div className="col">
+            <button
+              className="btn primary"
+              onClick={() => {
+                setOtra(quitar.food.id, true);
+                onToast(`${quitar.food.nombre.split(' (')[0]}: no se comprará en Mercadona`);
+                setQuitar(null);
+              }}
+            >
+              🏪 No lo compro en Mercadona (siempre)
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                setQuitados([...quitados, quitar.food.id]);
+                setQuitar(null);
+              }}
+            >
+              ✕ Quitar solo de esta compra
+            </button>
+          </div>
+          <div className="sub">“Siempre” se recuerda; lo puedes deshacer abajo en “🏪 En otra tienda” o en Más → Mercadona.</div>
+        </Sheet>
+      )}
       {linkFor && <MercaLinkSheet food={linkFor} onClose={() => setLinkFor(null)} onToast={onToast} />}
       {confirm && (
         <Sheet title="Cargar en tu carrito" onClose={() => setConfirm(false)}>

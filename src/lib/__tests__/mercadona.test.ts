@@ -7,6 +7,7 @@ import { plannedMeals, shoppingList, datesBetween } from '../planning';
 import { favoriteToMeal } from '../favorites';
 import * as DE from '../dayEdit';
 import {
+  basketText,
   basketTotal,
   bestMatch,
   buildBasket,
@@ -100,6 +101,17 @@ describe('cesta desde el plan', () => {
     expect(lines.find((l) => l.food.id === 'pollo_pechuga')!.qty).toBe(3);
     const q = buildBasket(items, { pollo_pechuga: link('pollo_pechuga', P.pollo) }, { quitados: ['pollo_pechuga'] });
     expect(cartLines(q)).toHaveLength(0);
+  });
+
+  it('quitar uno sin vincular y "otra tienda" (aunque esté vinculado)', () => {
+    const q = buildBasket(items, {}, { quitados: ['ratatouille'] });
+    expect(q.find((l) => l.food.id === 'ratatouille')!.status).toBe('quitado');
+    const o = buildBasket(items, { pollo_pechuga: link('pollo_pechuga', P.pollo) }, { otraTienda: ['pollo_pechuga', 'ratatouille'] });
+    expect(o.find((l) => l.food.id === 'pollo_pechuga')!.status).toBe('otra_tienda');
+    expect(o.find((l) => l.food.id === 'ratatouille')!.status).toBe('otra_tienda');
+    expect(cartLines(o)).toHaveLength(0);
+    expect(basketTotal(o)).toBe(0);
+    expect(basketText(o, 'T')).toContain('En otra tienda:');
   });
 });
 

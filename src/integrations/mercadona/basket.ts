@@ -6,7 +6,7 @@ import type { Food, MercaLink, MercaProduct } from '../../types';
 import type { ShoppingItem } from '../../lib/planning';
 import type { CartLine } from './client';
 
-export type LineStatus = 'ok' | 'sin_vincular' | 'en_casa' | 'quitado';
+export type LineStatus = 'ok' | 'sin_vincular' | 'en_casa' | 'quitado' | 'otra_tienda';
 
 export interface BasketLine {
   food: Food;
@@ -32,6 +32,8 @@ export interface BasketOptions {
   incluirEnCasa?: boolean;
   /** foodIds que el usuario ha quitado de la cesta */
   quitados?: string[];
+  /** foodIds que se compran en otra tienda (siempre fuera de la cesta) */
+  otraTienda?: string[];
   /** cantidad elegida a mano para el carrito (foodId → qty) */
   ajustes?: Record<string, number>;
 }
@@ -97,13 +99,15 @@ export function buildBasket(items: ShoppingItem[], links: Record<string, MercaLi
     const needG = item.unit === 'unidad' ? (item.unidades ?? 0) * (food.pesoUnidad ?? 0) : item.comprar;
     const enCasa = (o.pantry ?? []).includes(food.id);
     const base = { food, item, link };
-    if (!link) {
-      return { ...base, need: needG, needUnit: item.unit === 'ml' ? 'ml' : 'g', qty: 0, compra: 0, sobrante: 0, precio: 0, status: 'sin_vincular' } as BasketLine;
+    const fuera: LineStatus | undefined = o.otraTienda?.includes(food.id) ? 'otra_tienda' : o.quitados?.includes(food.id) ? 'quitado' : undefined;
+    if (!link || fuera === 'otra_tienda') {
+      const status: LineStatus = fuera ?? 'sin_vincular';
+      return { ...base, need: needG, needUnit: item.unit === 'ml' ? 'ml' : 'g', qty: 0, compra: 0, sobrante: 0, precio: 0, status } as BasketLine;
     }
     const pk = packsFor(needG, item.unit === 'unidad' ? item.unidades : undefined, link.product, food);
     const qty = o.ajustes?.[food.id] ?? pk.qty;
     const compra = isBulk(link.product) ? qty * 1000 : qty * productSize(link.product).size;
-    const status: LineStatus = o.quitados?.includes(food.id) ? 'quitado' : enCasa && !o.incluirEnCasa ? 'en_casa' : 'ok';
+    const status: LineStatus = fuera ? fuera : enCasa && !o.incluirEnCasa ? 'en_casa' : 'ok';
     return {
       ...base,
       need: pk.need,
@@ -300,7 +304,7 @@ export function qtyText(l: BasketLine): string {
 export function basketText(lines: BasketLine[], title: string): string {
   const out = [title, ''];
   for (const l of lines) {
-    if (l.status === 'quitado') continue;
+    if (l.status === 'quitado' || l.status === 'otra_tienda') continue;
     const mark = l.status === 'en_casa' ? '☑' : '☐';
     if (l.link) {
       out.push(`${mark} ${l.link.product.nombre} (${l.link.product.formato ?? ''} ${sizeText(l.link.product)}) ${qtyText(l)} — ${eur(l.precio)}`.replace(/\(\s+/, '('));
@@ -309,6 +313,8 @@ export function basketText(lines: BasketLine[], title: string): string {
     }
   }
   out.push('', `Total estimado: ${eur(basketTotal(lines))}`);
+  const otra = lines.filter((l) => l.status === 'otra_tienda');
+  if (otra.length) out.push('', `En otra tienda: ${otra.map((l) => l.food.nombre.split(' (')[0]).join(', ')}`);
   return out.join('\n');
 }
 

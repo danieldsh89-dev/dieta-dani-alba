@@ -11,8 +11,8 @@ import {
   ev,
   foodItem,
   itemProduct,
+  qtyUnits,
   reviewCandidates,
-  stepFor,
   ZONES,
   type ItemState,
 } from '../lib/stock';
@@ -23,6 +23,7 @@ import { manualReceipt, syncOrders } from '../integrations/mercadona/orders';
 import { MercaError } from '../integrations/mercadona/client';
 import { scheduleReminders } from '../lib/notify';
 import { VoiceBar } from '../components/VoiceBar';
+import { QtyEditor } from '../components/QtyEditor';
 import { StockItemSheet } from '../components/StockItemSheet';
 import { MercaProductPicker } from '../components/MercaLinkSheet';
 import { Segmented, Sheet, Warnings } from '../components/ui';
@@ -307,39 +308,37 @@ function ItemRow({ it, s, onOpen }: { it: StockItem; s?: ItemState; onOpen: () =
 function QuickRow({ it, s, onOpen, done }: { it: StockItem; s?: ItemState; onOpen: () => void; done?: boolean }) {
   const { data, fm, stockApply } = useStore();
   const p = itemProduct(data, it);
-  const step = stepFor(it, it.foodId ? fm[it.foodId] : undefined, p);
+  const food = it.foodId ? fm[it.foodId] : undefined;
   const put = (e: ReturnType<typeof ev>) => stockApply({ items: [it], events: [e] });
   const known = s && s.fuente !== 'desconocido';
   return (
-    <div className="col" style={{ gap: 4, borderTop: '1px solid var(--line)', paddingTop: 6, opacity: done ? 0.55 : 1 }}>
+    <div className="col" style={{ gap: 4, borderTop: '1px solid var(--line)', paddingTop: 6, opacity: done ? 0.7 : 1 }}>
       <button className="row between small" style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textAlign: 'left' }} onClick={onOpen}>
         <span className="grow">
           {done ? '✓ ' : ''}
           <b>{it.nombre}</b>
         </span>
         <span className="tiny muted">
-          {!known ? 'sin dato' : s!.cantidad !== undefined ? `¿${amountText(it, s!.cantidad, p)}?` : s!.nivel === 'ok' ? '¿hay?' : s!.nivel === 'poco' ? '¿queda poco?' : '¿no queda?'}
+          {!known ? 'sin dato' : s!.cantidad !== undefined ? `ahora ${amountText(it, s!.cantidad, p)}` : s!.nivel === 'ok' ? 'hay' : s!.nivel === 'poco' ? 'queda poco' : 'no queda'}
         </span>
       </button>
       <div className="btn-row" style={{ gap: 4 }}>
         {it.tipo === 'contado' ? (
           <>
-            <button className="btn small" disabled={!known || s!.cantidad === undefined} onClick={() => put(ev(it.id, 'set', { valor: s!.cantidad }, 'revision'))}>
-              ✅ Sí
-            </button>
-            <button className="btn small" disabled={!known || s!.cantidad === undefined} onClick={() => put(ev(it.id, 'set', { valor: Math.max(0, (s!.cantidad ?? 0) - step) }, 'revision'))}>
-              −{it.unidad === 'ud' ? 1 : step}
-            </button>
-            <button className="btn small" onClick={() => put(ev(it.id, 'set', { valor: (known ? (s!.cantidad ?? 0) : 0) + step }, 'revision'))}>
-              +{it.unidad === 'ud' ? 1 : step}
-            </button>
-            <button className="btn small" onClick={() => put(ev(it.id, 'nivel', { nivel: 'poco' }, 'revision'))}>
+            <QtyEditor
+              compact
+              itemId={it.id}
+              units={qtyUnits(it, food, p)}
+              value={known ? s!.cantidad : undefined}
+              onSave={(v) => put(ev(it.id, 'set', { valor: v }, 'revision'))}
+            />
+            <button className="btn small" title="Queda poco" onClick={() => put(ev(it.id, 'nivel', { nivel: 'poco' }, 'revision'))}>
               🟡
             </button>
-            <button className="btn small" onClick={() => put(ev(it.id, 'set', { valor: 0 }, 'revision'))}>
+            <button className="btn small" title="No queda" onClick={() => put(ev(it.id, 'set', { valor: 0 }, 'revision'))}>
               🔴
             </button>
-            <button className="btn small" onClick={onOpen}>
+            <button className="btn small" title="Más opciones" onClick={onOpen}>
               ✏️
             </button>
           </>

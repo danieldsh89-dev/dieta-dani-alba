@@ -595,3 +595,35 @@ export function matchByName(productName: string, items: StockItem[]): StockItem 
   }
   return best?.it;
 }
+
+// ───────── unidades para escribir cantidades (envase, g, kg, ud) ─────────
+
+export interface QtyUnit {
+  id: 'envase' | 'base' | 'mil';
+  /** etiqueta: "bolsa (500 g)", "g", "kg", "ud" */
+  label: string;
+  /** cuánto es 1 de esta unidad en la unidad del artículo */
+  factor: number;
+  step: number;
+}
+
+const fmtSize = (n: number, u: string) => (u !== 'ud' && n >= 1000 ? `${(n / 1000).toLocaleString('es-ES')} ${u === 'g' ? 'kg' : 'L'}` : `${Math.round(n * 10) / 10} ${u}`);
+
+/** Unidades en las que se puede escribir la cantidad de un artículo (la del envase primero). */
+export function qtyUnits(it: Pick<StockItem, 'unidad' | 'envase'>, food?: Food, p?: MercaProduct): QtyUnit[] {
+  const out: QtyUnit[] = [];
+  let size: number | undefined;
+  let name = 'envase';
+  if (p && p.sellingMethod === 0) {
+    const s = productSize(p);
+    name = (p.formato ?? 'envase').toLowerCase();
+    if (s.unit === it.unidad || (s.unit !== 'ud' && it.unidad !== 'ud')) size = s.size;
+    else if (it.unidad === 'ud' && food?.pesoUnidad) size = s.size / food.pesoUnidad;
+    else if (it.unidad !== 'ud' && food?.pesoUnidad) size = s.size * food.pesoUnidad;
+  } else if (it.envase) size = it.envase;
+  if (size && size > 0 && Math.abs(size - 1) > 1e-6) out.push({ id: 'envase', label: `${name} (${fmtSize(size, it.unidad)})`, factor: size, step: 1 });
+  const base = it.unidad === 'ud' ? (food?.nombreUnidad ? `${food.nombreUnidad}s` : 'ud') : it.unidad;
+  out.push({ id: 'base', label: base, factor: 1, step: it.unidad === 'ud' ? 1 : 50 });
+  if (it.unidad !== 'ud') out.push({ id: 'mil', label: it.unidad === 'g' ? 'kg' : 'L', factor: 1000, step: 0.5 });
+  return out;
+}

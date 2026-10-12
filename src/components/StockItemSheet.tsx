@@ -3,7 +3,8 @@ import type { StockItem, StockLevel } from '../types';
 import { useStore } from '../store/AppStore';
 import { todayKey } from '../lib/day';
 import { formatDay } from '../lib/planning';
-import { amountText, DIAS_OLVIDO, ev, itemProduct, reponerDe, stepFor, ZONES, type ItemState } from '../lib/stock';
+import { amountText, DIAS_OLVIDO, ev, itemProduct, qtyUnits, reponerDe, stepFor, ZONES, type ItemState } from '../lib/stock';
+import { QtyEditor } from './QtyEditor';
 import { frecuencia, frecuenciaText, gastoMes, registrarCompra } from '../integrations/mercadona/habituales';
 import { MercaProductPicker, ProductRow } from './MercaLinkSheet';
 import { Sheet } from './ui';
@@ -20,7 +21,6 @@ export function StockItemSheet({ item, state, onClose, onToast }: { item: StockI
   const food = item.foodId ? fm[item.foodId] : undefined;
   const product = itemProduct(data, item);
   const step = stepFor(item, food, product);
-  const [exact, setExact] = useState<string>(state?.cantidad !== undefined ? String(Math.round(state.cantidad * 10) / 10) : '');
   const [picking, setPicking] = useState(false);
   const [more, setMore] = useState(false);
   const save = (patch: Partial<StockItem>) => stockApply({ items: [{ ...item, ...patch }] });
@@ -55,31 +55,15 @@ export function StockItemSheet({ item, state, onClose, onToast }: { item: StockI
 
       {item.tipo === 'contado' && (
         <>
-          <form
-            className="row"
-            style={{ gap: 6 }}
-            onSubmit={(e) => {
-              e.preventDefault();
-              const v = Number(exact.replace(',', '.'));
-              if (!Number.isFinite(v) || v < 0) return;
-              emit('set', { valor: v }, `${item.nombre}: hay ${v} ${unidad}`);
-            }}
-          >
-            <label className="field grow">
-              Hay exactamente ({unidad})
-              <input type="text" inputMode="decimal" value={exact} onChange={(e) => setExact(e.target.value)} />
-            </label>
-            <button className="btn primary" style={{ alignSelf: 'flex-end' }} type="submit">
-              Guardar
-            </button>
-          </form>
+          <div className="small">Hay ahora:</div>
+          <QtyEditor
+            itemId={item.id}
+            units={qtyUnits(item, food, product)}
+            value={state?.fuente !== 'desconocido' ? state?.cantidad : undefined}
+            onSave={(v) => emit('set', { valor: v }, `${item.nombre}: hay ${amountText(item, v, product)}`)}
+          />
+          <div className="tiny muted">Pulsa − / + las veces que quieras (o escribe el número), elige la unidad y guarda.</div>
           <div className="btn-row">
-            <button className="btn small" onClick={() => emit('delta', { valor: -step }, `−${step} ${unidad}`)}>
-              − {step} {unidad}
-            </button>
-            <button className="btn small" onClick={() => emit('delta', { valor: step }, `+${step} ${unidad}`)}>
-              + {step} {unidad}
-            </button>
             <button className="btn small" onClick={() => emit('nivel', { nivel: 'poco' }, 'Marcado: queda poco')}>
               🟡 Poco
             </button>

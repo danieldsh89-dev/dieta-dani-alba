@@ -284,3 +284,22 @@ describe('cómo se repone (habitual / preguntar / no reponer)', () => {
     expect(applyVoz(r.acciones, hoy).items[0].reponer).toBe('habitual');
   });
 });
+
+describe('unidades para escribir cantidades', () => {
+  it('envase del producto de Mercadona, gramos y kg', () => {
+    const u = S.qtyUnits(S.foodItem(fm.pollo_pechuga, 'x'), fm.pollo_pechuga, POLLO);
+    expect(u.map((x) => [x.id, x.label, x.factor])).toEqual([
+      ['envase', 'bandeja (530 g)', 530],
+      ['base', 'g', 1],
+      ['mil', 'kg', 1000],
+    ]);
+  });
+  it('sin producto: el envase guardado (bolsa de 500 g de albóndigas)', () => {
+    const u = S.qtyUnits({ unidad: 'g', envase: 500 }, fm.albondigas);
+    expect(u[0]).toMatchObject({ id: 'envase', factor: 500 });
+  });
+  it('huevos: la caja de 12 frente a unidades sueltas', () => {
+    const u = S.qtyUnits(S.foodItem(fm.huevo, 'x'), fm.huevo, HUEVOS);
+    expect(u.map((x) => x.factor)).toEqual([12, 1]);
+  });
+});

@@ -264,3 +264,18 @@ En Plan → Compra → 🛒 Mercadona, la tarjeta **🧴 Otros productos** permi
 - Lo que toca (o está apuntado) entra solo en la cesta, en el total y en el carrito; la cantidad se recuerda.
 - "✓ Lo compré hoy" anota compras hechas fuera de la app. Se ve el gasto ≈ €/mes.
 - Los habituales se sincronizan: Alba puede apuntar "falta suavizante" desde su móvil.
+
+## Novedades v1.6 — Casa: despensa con stock real
+
+Nueva pestaña **🧺 Casa** (Alimentos pasa a Más). Recoge las ideas útiles del antiguo proyecto "Despensa".
+
+- **Stock automático**: los alimentos de la dieta se descuentan solos con las comidas registradas (desayuno 9:00, almuerzo 14:00, cena 21:00, extras 17:00); los **pedidos de Mercadona entregados** se leen solos (líneas preparadas, con faltas y sustituciones) y suman al stock. Cada cambio es un evento inmutable (`set` / `delta` / `nivel`): los dos móviles nunca se pisan.
+- **Voz** (gratis, sin IA): 🎤 Hablar o escribir — "se acabó la leche, quedan 4 huevos, apunta papel higiénico, medio paquete de arroz, el pollo caduca el jueves, he tirado el pan". Acceso directo **🎤 Apuntar** al mantener pulsado el icono.
+- **Contados y por estado**: huevos/leche/pollo llevan cantidad; aceite/sal/limpieza solo hay / poco / no queda (y frecuencia aprendida).
+- **Revisión rápida** (lo que puede haberse desviado) y **recuento por zonas** por voz con "el resto bien".
+- **Cesta de Mercadona**: resta lo que ya hay en casa; lo que se acaba, se apunta o toca por frecuencia entra en "Otros productos de casa".
+- **Avisos**: por la noche "¿habéis comido lo planificado?" y revisión semanal (notificaciones locales).
+- **Generador**: cuenta lo que hay y prioriza lo que caduca pronto. **Compras**: gasto por mes y lo tirado.
+- **Importar** el inventario de Despensa (⚙️ → archivo `despensa-v1`).
+
+Código: `src/lib/stock.ts` (motor), `src/lib/voz.ts` (intérprete), `src/integrations/mercadona/orders.ts` (pedidos), `src/screens/CasaScreen.tsx`. Tests en `src/lib/__tests__/stock.test.ts`.

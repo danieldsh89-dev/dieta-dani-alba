@@ -218,6 +218,8 @@ export interface DayLog {
   separado?: Partial<Record<Block, Partial<Record<ProfileId, DaySlot>>>>;
   /** extras fuera del plan (picoteo): cuentan en los totales del día */
   extras?: ExtraItem[];
+  /** confirmado que se comió lo registrado (aviso de la noche) */
+  confirmado?: boolean;
 }
 
 export interface ExtraItem {
@@ -271,6 +273,101 @@ export interface MercaHabitual {
   /** se quitó cuando tocaba: no vuelve a salir hasta esta fecha */
   pospuesto?: string;
   creado: string;
+}
+
+// ───────── stock de casa ─────────
+
+export type StockLevel = 'ok' | 'poco' | 'agotado';
+export type StockZone = 'nevera' | 'congelador' | 'despensa' | 'fruta' | 'bebidas' | 'limpieza' | 'bano' | 'otros';
+
+/**
+ * Algo que hay (o no) en casa. Los alimentos de la dieta usan id = foodId y se gastan solos
+ * con las comidas registradas; el resto (limpieza, bebidas…) se gasta por voz, revisión o frecuencia.
+ */
+export interface StockItem {
+  id: string;
+  nombre: string;
+  /** alimento de la dieta (consumo automático con las comidas) */
+  foodId?: string;
+  /** producto de Mercadona (los alimentos usan su vínculo de Mercadona) */
+  product?: MercaProduct;
+  /** otros nombres (pedidos, voz) */
+  aliases?: string[];
+  /** contado: lleva cantidad; estado: solo ok / poco / agotado */
+  tipo: 'contado' | 'estado';
+  /** unidad del stock contado */
+  unidad: 'g' | 'ml' | 'ud';
+  zona?: StockZone;
+  /** lo que trae un envase, en `unidad` (si no hay producto de Mercadona) */
+  envase?: number;
+  /** por debajo de esto entra en la lista (en `unidad`) */
+  minimo?: number;
+  caduca?: string;
+  /** reposición: cantidad que se pide (unidades de venta; kg a granel) */
+  qty: number;
+  /** frecuencia fijada a mano, en días */
+  cadaDias?: number;
+  /** aprender la frecuencia de las compras */
+  aprender: boolean;
+  /** fechas de compra (YYYY-MM-DD), de más antigua a más reciente */
+  compras: string[];
+  /** apuntado para la próxima compra */
+  apuntado?: boolean;
+  /** se quitó cuando tocaba: no vuelve a salir hasta esta fecha */
+  pospuesto?: string;
+  creado: string;
+}
+
+/** Movimiento del stock. Son inmutables: así dos móviles nunca se pisan. */
+export interface StockEvent {
+  id: string;
+  /** cuándo pasó (ISO) */
+  at: string;
+  item: string;
+  /** set = cantidad exacta; delta = suma/resta; nivel = estado */
+  tipo: 'set' | 'delta' | 'nivel';
+  valor?: number;
+  nivel?: StockLevel;
+  origen: 'voz' | 'pedido' | 'compra' | 'revision' | 'manual' | 'tirado' | 'importado';
+  pedido?: string;
+  quien?: ProfileId;
+}
+
+export interface StockOrder {
+  id: string;
+  /** entrega (ISO) */
+  entrega: string;
+  total?: number;
+  productos?: number;
+  /** cuándo se sumó al stock (sin fecha: solo conocido, p. ej. historial de gasto) */
+  aplicado?: string;
+  /** recibido a mano (sin leer el pedido de Mercadona) */
+  manual?: boolean;
+  /** líneas aplicadas: comida / casa / nuevas */
+  resumen?: { alimentos: number; casa: number; nuevos: number; faltas: number };
+}
+
+export interface StockConfig {
+  /** desde cuándo se lleva el stock (antes no se descuenta nada) */
+  desde?: string;
+  /** descontar las comidas registradas aunque no se confirmen */
+  autoPlan: boolean;
+  /** avisos del móvil */
+  avisoNoche: boolean;
+  horaNoche: number;
+  avisoRevision: boolean;
+  ultimaRevision?: string;
+  /** última comprobación de pedidos (ISO) */
+  pedidosVisto?: string;
+  /** última carga del carrito desde la app (para "ya ha llegado" a mano) */
+  ultimaCarga?: { fecha: string; lineas: { productId: string; quantity: number }[] };
+}
+
+export interface StockData {
+  items: Record<string, StockItem>;
+  events: StockEvent[];
+  pedidos: Record<string, StockOrder>;
+  config: StockConfig;
 }
 
 /** Alimento de la app ↔ producto de Mercadona (se comparte entre móviles) */
@@ -367,6 +464,7 @@ export interface AppData {
   semanasTipo: WeekTemplate[];
   /** integración Mercadona: configuración y productos vinculados */
   mercadona: { config: MercaConfig; links: Record<string, MercaLink>; habituales: Record<string, MercaHabitual> };
+  stock: StockData;
   settings: Settings;
   sync: SyncState;
 }

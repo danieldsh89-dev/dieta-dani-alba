@@ -54,6 +54,7 @@ export function createSeedData(): AppData {
     ratings: {},
     semanasTipo: [],
     mercadona: { config: { cp: '35215', wh: '4418', maxEur: 150 }, links: {}, habituales: {} },
+    stock: { items: {}, events: [], pedidos: {}, config: { autoPlan: true, avisoNoche: true, horaNoche: 22, avisoRevision: true } },
     settings: { ...DEFAULT_SETTINGS },
     sync: emptySync(),
   };
@@ -105,6 +106,12 @@ function mergeRaw(saved: AppData): AppData {
       config: { ...seed.mercadona.config, ...saved.mercadona?.config },
       links: saved.mercadona?.links ?? {},
       habituales: saved.mercadona?.habituales ?? {},
+    },
+    stock: {
+      items: saved.stock?.items ?? {},
+      events: saved.stock?.events ?? [],
+      pedidos: saved.stock?.pedidos ?? {},
+      config: { ...seed.stock.config, ...saved.stock?.config },
     },
   };
 }

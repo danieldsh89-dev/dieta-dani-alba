@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { caducanPronto, computeStock } from '../lib/stock';
 import type { Block, Meal, ProfileId } from '../types';
 import { BLOCKS, PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
@@ -36,7 +37,7 @@ export function GeneratorScreen({
   onToast: (t: string) => void;
   onUsed: () => void;
 }) {
-  const { data, genCtx, fm, placeMeal, setPantry, getDay } = useStore();
+  const { data, genCtx, fm, cm, placeMeal, setPantry, getDay } = useStore();
   const [modo, setModo] = useState<'generador' | 'casa'>(preset?.modo ?? 'generador');
   const [bloque, setBloque] = useState<Block>(preset?.bloque ?? 'B');
   const [obligatorios, setObligatorios] = useState<string[]>([]);
@@ -62,6 +63,19 @@ export function GeneratorScreen({
   const targets = objetivos;
   const entrenos = PROFILE_IDS.filter((p) => dayGoals(data.profiles[p], fecha, today).entreno).map((p) => data.profiles[p].nombre);
 
+  // lo que la despensa sabe que hay (y lo que caduca pronto) cuenta como "lo que tengo"
+  const despensa = useMemo(() => {
+    const st = computeStock(data, fm, cm);
+    const hay = Object.values(data.stock.items)
+      .filter((it) => it.foodId && st[it.id] && st[it.id].fuente !== 'desconocido' && st[it.id].nivel !== 'agotado')
+      .map((it) => it.foodId!);
+    const caducan = caducanPronto(data, st, todayKey())
+      .filter((it) => it.foodId)
+      .map((it) => it.foodId!);
+    return { hay, caducan };
+  }, [data, fm, cm]);
+  const disponibles = useMemo(() => [...new Set([...data.pantry, ...despensa.hay])], [data.pantry, despensa]);
+
   const buildReq = (extraExcl: string[] = []): GeneratorRequest => {
     const casa = modo === 'casa';
     return {
@@ -69,7 +83,8 @@ export function GeneratorScreen({
       obligatorios: casa ? [] : obligatorios,
       opcionales: casa ? [] : opcionales,
       prohibidos,
-      disponibles: data.pantry,
+      disponibles,
+      caducan: despensa.caducan,
       estilo,
       filtros: {
         sinLacteos,
@@ -179,7 +194,11 @@ export function GeneratorScreen({
             <div className="step-title">
               <span className="step-num">2</span> ¿Qué tienes en casa?
             </div>
-            <div className="sub">Se guarda para la próxima vez.</div>
+            <div className="sub">
+              Se guarda para la próxima vez.
+              {despensa.hay.length > 0 && ` Además cuenta lo que la despensa 🧺 sabe que hay (${despensa.hay.length}).`}
+              {despensa.caducan.length > 0 && ` ⏳ Prioriza lo que caduca pronto (${despensa.caducan.length}).`}
+            </div>
             <FoodSelector title="Tengo en casa" selected={data.pantry} onChange={togglePantry} chipClass="have" emptyText="Marca lo que tienes disponible" />
           </>
         ) : (
@@ -228,7 +247,7 @@ export function GeneratorScreen({
               </label>
               <label className="check">
                 <input type="checkbox" checked={usarLoQueTengo} onChange={(e) => setUsarLoQueTengo(e.target.checked)} /> Usar lo que tengo en
-                casa ({data.pantry.length})
+                casa ({disponibles.length})
               </label>
             </>
           )}
@@ -256,7 +275,7 @@ export function GeneratorScreen({
           </details>
         )}
         {!data.settings.mismaRecetaParaAmbos && <Warnings items={['“Misma receta para ambos” está desactivado: cada uno recibirá su propio plato.']} />}
-        <button className="btn primary block" onClick={() => run([])} disabled={casa && data.pantry.length === 0}>
+        <button className="btn primary block" onClick={() => run([])} disabled={casa && disponibles.length === 0}>
           {casa ? '🍳 Crear comida' : '⚙️ Generar opciones'}
         </button>
       </div>

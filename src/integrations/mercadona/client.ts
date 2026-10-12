@@ -332,6 +332,20 @@ export class MercadonaClient {
     return parseCart(data);
   }
 
+  /** Historial de pedidos (página 1 = los más recientes). */
+  async orders(page = 1): Promise<{ orders: OrderSummary[]; next: boolean }> {
+    if (!this.session?.accessToken && this.session?.refreshToken) await this.refresh();
+    const url = `${BASE_URL}/api/customers/${this.customer()}/orders/?page=${page}`;
+    return parseOrders(await this.authed({ method: 'GET', url }, 'Leer pedidos'));
+  }
+
+  /** Lo que se preparó de verdad en un pedido (con faltas y sustituciones). */
+  async orderLines(orderId: string): Promise<OrderLine[]> {
+    if (!this.session?.accessToken && this.session?.refreshToken) await this.refresh();
+    const base = `${BASE_URL}/api/customers/${this.customer()}/orders/${encodeURIComponent(orderId)}`;
+    return parseOrderLines(await this.authed({ method: 'GET', url: `${base}/lines/prepared/?lang=es&wh=${encodeURIComponent(this.wh)}` }, 'Leer pedido'));
+  }
+
   /** Sustituye las líneas del carrito (una sola escritura, sin carreras). */
   async putCart(cart: Cart, lines: CartLine[]): Promise<Cart> {
     const body = {
@@ -345,6 +359,73 @@ export class MercadonaClient {
       return { ...cart, lines };
     }
   }
+}
+
+// ───────── pedidos ─────────
+
+export interface OrderSummary {
+  id: string;
+  /** fin de la franja de entrega (ISO) */
+  entrega: string;
+  estado: string;
+  status: number;
+  total?: number;
+  productos?: number;
+}
+
+export interface OrderLine {
+  productId: string;
+  pedida: number;
+  preparada: number;
+  /** complete / incomplete / substituted… */
+  resultado?: string;
+  precio?: number;
+  product?: MercaProduct;
+  categoria?: string;
+}
+
+export function parseOrders(data: unknown): { orders: OrderSummary[]; next: boolean } {
+  const d = data as { results?: unknown; next_page?: unknown };
+  if (!d || !Array.isArray(d.results)) throw new MercaError('cambio_api', 'Formato de pedidos inesperado');
+  const orders = (d.results as Record<string, unknown>[]).map((o) => {
+    const summary = (o.summary ?? {}) as Record<string, unknown>;
+    const slot = (o.slot ?? {}) as Record<string, unknown>;
+    return {
+      id: String(o.order_id ?? o.id ?? ''),
+      entrega: String(o.end_date ?? slot.end ?? o.start_date ?? ''),
+      estado: String(o.status_ui ?? ''),
+      status: num(o.status, -1),
+      total: summary.total !== undefined ? num(summary.total) : o.price !== undefined ? num(o.price) : undefined,
+      productos: o.products_count !== undefined ? num(o.products_count) : undefined,
+    };
+  });
+  return { orders: orders.filter((o) => o.id && o.entrega), next: !!d.next_page };
+}
+
+export function parseOrderLines(data: unknown): OrderLine[] {
+  const d = data as { results?: unknown };
+  const rows = Array.isArray(d) ? d : d && Array.isArray(d.results) ? d.results : null;
+  if (!rows) throw new MercaError('cambio_api', 'Formato de líneas de pedido inesperado');
+  return (rows as Record<string, unknown>[]).map((l) => {
+    const prod = (l.product ?? null) as Record<string, unknown> | null;
+    let product: MercaProduct | undefined;
+    try {
+      product = prod ? toMercaProduct(prod) : undefined;
+    } catch {
+      product = undefined;
+    }
+    const cats = prod?.categories as { name?: string; categories?: { name?: string }[] }[] | undefined;
+    const pedida = num(l.ordered_quantity ?? l.quantity);
+    return {
+      productId: String(l.product_id ?? prod?.id ?? ''),
+      pedida,
+      preparada: l.prepared_quantity !== undefined && l.prepared_quantity !== null ? num(l.prepared_quantity) : pedida,
+      resultado: l.preparation_result ? String(l.preparation_result) : undefined,
+      precio: l.total_prepared_price !== undefined ? num(l.total_prepared_price) : undefined,
+      product,
+      categoria: cats?.[0]?.name,
+    };
+  }).filter((l) => l.productId);
 }
 
 export function parseCart(data: Record<string, unknown>): Cart {

@@ -16,6 +16,10 @@ import type {
   MercaConfig,
   MercaHabitual,
   MercaLink,
+  StockConfig,
+  StockEvent,
+  StockItem,
+  StockOrder,
 } from '../types';
 import { PROFILE_IDS } from '../types';
 import { toConversionMap, type ConversionMap } from '../lib/conversions';
@@ -26,6 +30,7 @@ import * as DE from '../lib/dayEdit';
 import { addDays } from '../lib/planning';
 import { key, tombstone, touch, weightId } from '../sync/docs';
 import { applyBaseline, BASELINE_CREATOR, BASELINE_JOINER } from '../sync/baseline';
+import { nameFromProduct, zoneFor } from '../lib/stock';
 import { isSyncEnabled, syncOnce } from '../sync/engine';
 import type { CloudConfig } from '../sync/supabase';
 import { LocalStorageRepository, type DataRepository } from './repository';
@@ -75,6 +80,10 @@ interface Store {
   setMercaConfig: (patch: Partial<MercaConfig>) => void;
   setMercaLink: (foodId: string, link: MercaLink | undefined) => void;
   setMercaHabitual: (id: string, h: MercaHabitual | undefined) => void;
+  /** cambios del stock en bloque (artículos, eventos, pedidos, ajustes) */
+  stockApply: (c: StockChange) => void;
+  /** confirmar (o no) que se comió lo registrado ese día */
+  confirmDay: (fecha: string, value: boolean) => void;
   setPantry: (ids: string[]) => void;
   setShoppingChecked: (ids: string[]) => void;
   importData: (json: string) => void;
@@ -98,6 +107,15 @@ function initialData(): AppData {
 
 export function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export interface StockChange {
+  items?: StockItem[];
+  removeItems?: string[];
+  events?: StockEvent[];
+  removeEvents?: string[];
+  pedidos?: StockOrder[];
+  config?: Partial<StockConfig>;
 }
 
 const SHARED_SETTINGS: (keyof Settings)[] = ['mismaRecetaParaAmbos', 'permitirComplementosDistintos', 'bloquesSeparados'];
@@ -368,6 +386,66 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const stockApply = useCallback((c: StockChange) => {
+    setData((d) => {
+      const items = { ...d.stock.items };
+      for (const it of c.items ?? []) items[it.id] = it;
+      for (const id of c.removeItems ?? []) delete items[id];
+      const rm = new Set(c.removeEvents ?? []);
+      const byId = new Map(d.stock.events.filter((e) => !rm.has(e.id)).map((e) => [e.id, e]));
+      for (const e of c.events ?? []) byId.set(e.id, e);
+      const events = [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
+      const pedidos = { ...d.stock.pedidos };
+      for (const p of c.pedidos ?? []) pedidos[p.id] = p;
+      const config = c.config ? { ...d.stock.config, ...c.config } : d.stock.config;
+      let next: AppData = { ...d, stock: { items, events, pedidos, config } };
+      next = touch(next, [
+        ...(c.items ?? []).map((it) => key('sitem', it.id)),
+        ...(c.events ?? []).map((e) => key('sevt', e.id)),
+        ...(c.pedidos ?? []).map((p) => key('sord', p.id)),
+        ...(c.config ? [key('sconf', 'all')] : []),
+      ]);
+      return tombstone(next, [...(c.removeItems ?? []).map((id) => key('sitem', id)), ...(c.removeEvents ?? []).map((id) => key('sevt', id))]);
+    });
+  }, []);
+
+  const confirmDay = useCallback((fecha: string, value: boolean) => {
+    setData((d) => updateDay(d, fecha, (day) => ({ ...day, confirmado: value || undefined })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // v1.5 → v1.6: los "otros productos" habituales pasan a ser artículos del stock
+  useEffect(() => {
+    const habs = Object.values(dataRef.current.mercadona.habituales);
+    if (!habs.length) return;
+    setData((d) => {
+      const items = { ...d.stock.items };
+      const ids: string[] = [];
+      for (const h of Object.values(d.mercadona.habituales)) {
+        const id = `m${h.product.id}`;
+        ids.push(id);
+        items[id] = {
+          id,
+          nombre: nameFromProduct(h.product.nombre),
+          product: h.product,
+          tipo: 'estado',
+          unidad: 'ud',
+          zona: zoneFor(h.product.nombre),
+          qty: h.qty,
+          cadaDias: h.cadaDias,
+          aprender: h.aprender,
+          compras: h.compras,
+          apuntado: h.apuntado,
+          pospuesto: h.pospuesto,
+          creado: h.creado,
+        };
+      }
+      const old = Object.keys(d.mercadona.habituales);
+      const next = touch({ ...d, mercadona: { ...d.mercadona, habituales: {} }, stock: { ...d.stock, items } }, ids.map((id) => key('sitem', id)));
+      return tombstone(next, old.map((id) => key('mhab', id)));
+    });
+  }, [data.mercadona.habituales]);
+
   const copyDay = useCallback((from: string, to: string) => {
     setData((d) => {
       const src = d.history.find((h) => h.fecha === from);
@@ -406,6 +484,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ...Object.keys(next.mercadona.links).map((id) => key('mlink', id)),
         key('mconf', 'all'),
         ...Object.keys(next.mercadona.habituales).map((id) => key('mhab', id)),
+        ...Object.keys(next.stock.items).map((id) => key('sitem', id)),
+        ...next.stock.events.map((e) => key('sevt', e.id)),
+        ...Object.keys(next.stock.pedidos).map((id) => key('sord', id)),
+        key('sconf', 'all'),
         key('pantry', 'all'),
         key('shared', 'all'),
       ];
@@ -554,6 +636,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setMercaConfig,
     setMercaLink,
     setMercaHabitual,
+    stockApply,
+    confirmDay,
     setPantry,
     setShoppingChecked,
     importData,

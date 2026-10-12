@@ -3,9 +3,9 @@
  * y una marca de tiempo. Gana la versión más reciente (last-writer-wins) por documento.
  * Funciones puras: sin red ni React (testeadas en __tests__/sync.test.ts).
  */
-import type { AppData, DayLog, Favorite, Food, CookingConversion, MercaConfig, MercaHabitual, MercaLink, Profile, ProfileId, Rating, SyncState, WeekTemplate, WeightEntry } from '../types';
+import type { AppData, DayLog, Favorite, Food, CookingConversion, MercaConfig, MercaHabitual, MercaLink, Profile, ProfileId, Rating, StockConfig, StockEvent, StockItem, StockOrder, SyncState, WeekTemplate, WeightEntry } from '../types';
 
-export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating' | 'week' | 'mlink' | 'mconf' | 'mhab';
+export type DocKind = 'food' | 'conv' | 'profile' | 'fav' | 'day' | 'pantry' | 'shared' | 'shopping' | 'weight' | 'rating' | 'week' | 'mlink' | 'mconf' | 'mhab' | 'sitem' | 'sevt' | 'sord' | 'sconf';
 
 /** id del documento de peso: perfil:fecha */
 export const weightId = (w: Pick<WeightEntry, 'profile' | 'fecha'>) => `${w.profile}:${w.fecha}`;
@@ -99,6 +99,14 @@ export function readDoc(d: AppData, kind: DocKind, id: string): unknown {
       return d.mercadona.config;
     case 'mhab':
       return d.mercadona.habituales[id];
+    case 'sitem':
+      return d.stock.items[id];
+    case 'sevt':
+      return d.stock.events.find((e) => e.id === id);
+    case 'sord':
+      return d.stock.pedidos[id];
+    case 'sconf':
+      return d.stock.config;
   }
 }
 
@@ -195,6 +203,14 @@ function writeDoc(d: AppData, kind: DocKind, id: string, data: unknown): AppData
       return { ...d, mercadona: { ...d.mercadona, config: { ...(data as MercaConfig) } } };
     case 'mhab':
       return { ...d, mercadona: { ...d.mercadona, habituales: { ...d.mercadona.habituales, [id]: data as MercaHabitual } } };
+    case 'sitem':
+      return { ...d, stock: { ...d.stock, items: { ...d.stock.items, [id]: data as StockItem } } };
+    case 'sevt':
+      return { ...d, stock: { ...d.stock, events: upsertById(d.stock.events, data as StockEvent, (e) => e.id).sort((a, b) => a.at.localeCompare(b.at)) } };
+    case 'sord':
+      return { ...d, stock: { ...d.stock, pedidos: { ...d.stock.pedidos, [id]: data as StockOrder } } };
+    case 'sconf':
+      return { ...d, stock: { ...d.stock, config: { ...d.stock.config, ...(data as StockConfig) } } };
   }
 }
 
@@ -226,6 +242,18 @@ function removeDoc(d: AppData, kind: DocKind, id: string): AppData {
       const habituales = { ...d.mercadona.habituales };
       delete habituales[id];
       return { ...d, mercadona: { ...d.mercadona, habituales } };
+    }
+    case 'sitem': {
+      const items = { ...d.stock.items };
+      delete items[id];
+      return { ...d, stock: { ...d.stock, items } };
+    }
+    case 'sevt':
+      return { ...d, stock: { ...d.stock, events: d.stock.events.filter((e) => e.id !== id) } };
+    case 'sord': {
+      const pedidos = { ...d.stock.pedidos };
+      delete pedidos[id];
+      return { ...d, stock: { ...d.stock, pedidos } };
     }
     default:
       return d;

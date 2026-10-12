@@ -3,7 +3,10 @@
  * La frecuencia se puede fijar a mano y/o aprender de las compras: la mediana de los
  * intervalos entre compras recientes. Funciones puras — tests en src/lib/__tests__/mercadona.test.ts.
  */
-import type { MercaHabitual, MercaProduct } from '../../types';
+import type { MercaProduct, StockItem } from '../../types';
+
+/** Lo que necesita la lógica de frecuencia (un artículo del stock lo cumple) */
+export type Habitual = Pick<StockItem, 'id' | 'qty' | 'cadaDias' | 'aprender' | 'compras' | 'apuntado' | 'pospuesto'> & { product?: MercaProduct };
 import { addDays } from '../../lib/planning';
 import { linePrice } from './basket';
 export { combineLines } from './basket';
@@ -17,10 +20,14 @@ const MIN_INTERVALOS = 2;
 const dayNum = (k: string) => Math.round(Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10)) / 86400000);
 export const daysBetween = (a: string, b: string) => dayNum(b) - dayNum(a);
 
-export function nuevoHabitual(product: MercaProduct, hoy: string): MercaHabitual {
+export function nuevoHabitual(product: MercaProduct, hoy: string): StockItem {
   return {
-    id: product.id,
+    id: `m${product.id}`,
+    nombre: product.nombre,
     product,
+    tipo: 'estado',
+    unidad: 'ud',
+    zona: 'otros',
     qty: product.sellingMethod !== 0 ? product.minBunch || 1 : 1,
     aprender: true,
     compras: [],
@@ -45,14 +52,14 @@ export function intervaloAprendido(compras: string[]): { dias: number; n: number
 }
 
 /** Frecuencia que se usa: la aprendida (si aprende y hay datos) o la fijada a mano. */
-export function frecuencia(h: MercaHabitual): { dias?: number; aprendida: boolean; n: number } {
+export function frecuencia(h: Habitual): { dias?: number; aprendida: boolean; n: number } {
   const a = h.aprender ? intervaloAprendido(h.compras) : undefined;
   if (a) return { dias: a.dias, aprendida: true, n: a.n };
   return { dias: h.cadaDias, aprendida: false, n: 0 };
 }
 
 /** Próxima fecha en que toca comprarlo (sin frecuencia o sin compras: no se sabe). */
-export function proxima(h: MercaHabitual): string | undefined {
+export function proxima(h: Habitual): string | undefined {
   const dias = frecuencia(h).dias;
   const last = [...h.compras].sort().pop();
   if (!dias || !last) return undefined;
@@ -63,7 +70,7 @@ export function proxima(h: MercaHabitual): string | undefined {
 export type EstadoHabitual = 'apuntado' | 'toca' | 'pronto' | 'no';
 
 /** Para una compra que cubre hasta `hasta`: si va en esta compra o cuándo tocará. */
-export function estado(h: MercaHabitual, hasta: string): EstadoHabitual {
+export function estado(h: Habitual, hasta: string): EstadoHabitual {
   if (h.apuntado) return 'apuntado';
   const due = proxima(h);
   if (!due) return 'no';
@@ -72,49 +79,50 @@ export function estado(h: MercaHabitual, hasta: string): EstadoHabitual {
   return 'no';
 }
 
-export const enEstaCompra = (h: MercaHabitual, hasta: string) => {
+export const enEstaCompra = (h: Habitual, hasta: string) => {
   const e = estado(h, hasta);
   return e === 'apuntado' || e === 'toca';
 };
 
 /** Tras cargarlo en el carrito (o marcar "lo compré"): aprende de la fecha y la cantidad. */
-export function registrarCompra(h: MercaHabitual, fecha: string, qty = h.qty): MercaHabitual {
+export function registrarCompra<T extends Habitual>(h: T, fecha: string, qty = h.qty): T {
   const compras = [...new Set([...h.compras, fecha])].sort().slice(-MAX_COMPRAS);
   return { ...h, compras, qty, apuntado: false, pospuesto: undefined };
 }
 
 /** Quitar de esta compra algo que tocaba: no vuelve a salir hasta después de `hasta`. */
-export function posponer(h: MercaHabitual, hasta: string): MercaHabitual {
+export function posponer<T extends Habitual>(h: T, hasta: string): T {
   return { ...h, apuntado: false, pospuesto: addDays(hasta, 1) };
 }
 
 /** Volver a ponerlo en esta compra. */
-export function apuntar(h: MercaHabitual): MercaHabitual {
+export function apuntar<T extends Habitual>(h: T): T {
   return { ...h, apuntado: true, pospuesto: undefined };
 }
 
-export function precioHabitual(h: MercaHabitual, qty = h.qty): number {
-  return linePrice(h.product, qty);
+export function precioHabitual(h: Habitual, qty = h.qty): number {
+  return h.product ? linePrice(h.product, qty) : 0;
 }
 
 /** Gasto mensual aproximado según la frecuencia (sin frecuencia: no se estima). */
-export function gastoMes(h: MercaHabitual): number | undefined {
+export function gastoMes(h: Habitual): number | undefined {
   const dias = frecuencia(h).dias;
   if (!dias) return undefined;
   return Math.round(((precioHabitual(h) * 30) / dias) * 100) / 100;
 }
 
-export function habitualCartLine(h: MercaHabitual): CartLine {
-  const bulk = h.product.sellingMethod !== 0;
+export function habitualCartLine(h: Habitual): CartLine {
+  const p = h.product!;
+  const bulk = p.sellingMethod !== 0;
   return {
-    productId: h.product.id,
+    productId: p.id,
     quantity: h.qty,
-    nombre: h.product.nombre,
-    unitPrice: bulk ? (h.product.refPrice ?? h.product.unitPrice) : h.product.unitPrice,
+    nombre: p.nombre,
+    unitPrice: bulk ? (p.refPrice ?? p.unitPrice) : p.unitPrice,
   };
 }
 
-export function frecuenciaText(h: MercaHabitual): string {
+export function frecuenciaText(h: Habitual): string {
   const f = frecuencia(h);
   if (!f.dias) return h.aprender ? 'aprendiendo la frecuencia' : 'solo cuando lo apuntes';
   const d = f.dias % 7 === 0 && f.dias >= 14 ? `${f.dias / 7} semanas` : f.dias === 7 ? 'semana' : `${f.dias} días`;

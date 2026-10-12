@@ -24,6 +24,8 @@ export interface BasketLine {
   status: LineStatus;
   /** la conversión no es exacta (peso aproximado o unidades sin equivalencia) */
   aviso?: string;
+  /** lo que ya hay en casa y se descuenta (en la unidad de la necesidad del plan) */
+  enCasa?: number;
 }
 
 export interface BasketOptions {
@@ -36,6 +38,8 @@ export interface BasketOptions {
   otraTienda?: string[];
   /** cantidad elegida a mano para el carrito (foodId → qty) */
   ajustes?: Record<string, number>;
+  /** stock en casa al empezar la compra (foodId → g/ml, o unidades si el alimento va por unidades) */
+  cubierto?: Record<string, number>;
 }
 
 /** Tamaño de una unidad de venta en g / ml / ud. */
@@ -96,15 +100,20 @@ export function buildBasket(items: ShoppingItem[], links: Record<string, MercaLi
   return items.map((item) => {
     const food = item.food;
     const link = links[food.id];
-    const needG = item.unit === 'unidad' ? (item.unidades ?? 0) * (food.pesoUnidad ?? 0) : item.comprar;
-    const enCasa = (o.pantry ?? []).includes(food.id);
+    // lo que ya hay en casa se descuenta de lo que pide el plan
+    const hay = Math.max(0, o.cubierto?.[food.id] ?? 0);
+    const unidades = item.unit === 'unidad' ? Math.max(0, Math.ceil((item.unidades ?? 0) - hay - 1e-9)) : undefined;
+    const needG = item.unit === 'unidad' ? (unidades ?? 0) * (food.pesoUnidad ?? 0) : Math.max(0, Math.ceil((item.comprar - hay) / 5 - 1e-9) * 5);
+    const cubiertoTodo = o.cubierto?.[food.id] !== undefined && (item.unit === 'unidad' ? unidades === 0 : needG <= 0);
+    const enCasa = (o.pantry ?? []).includes(food.id) || cubiertoTodo;
+    const enCasaCant = hay > 0 ? Math.min(hay, item.unit === 'unidad' ? (item.unidades ?? 0) : item.comprar) : undefined;
     const base = { food, item, link };
     const fuera: LineStatus | undefined = o.otraTienda?.includes(food.id) ? 'otra_tienda' : o.quitados?.includes(food.id) ? 'quitado' : undefined;
     if (!link || fuera === 'otra_tienda') {
       const status: LineStatus = fuera ?? 'sin_vincular';
-      return { ...base, need: needG, needUnit: item.unit === 'ml' ? 'ml' : 'g', qty: 0, compra: 0, sobrante: 0, precio: 0, status } as BasketLine;
+      return { ...base, need: needG, needUnit: item.unit === 'ml' ? 'ml' : 'g', qty: 0, compra: 0, sobrante: 0, precio: 0, status, enCasa: enCasaCant } as BasketLine;
     }
-    const pk = packsFor(needG, item.unit === 'unidad' ? item.unidades : undefined, link.product, food);
+    const pk = packsFor(needG, item.unit === 'unidad' ? unidades : undefined, link.product, food);
     const qty = o.ajustes?.[food.id] ?? pk.qty;
     const compra = isBulk(link.product) ? qty * 1000 : qty * productSize(link.product).size;
     const status: LineStatus = fuera ? fuera : enCasa && !o.incluirEnCasa ? 'en_casa' : 'ok';
@@ -118,6 +127,7 @@ export function buildBasket(items: ShoppingItem[], links: Record<string, MercaLi
       precio: linePrice(link.product, qty),
       status,
       aviso: pk.aviso,
+      enCasa: enCasaCant,
     };
   });
 }

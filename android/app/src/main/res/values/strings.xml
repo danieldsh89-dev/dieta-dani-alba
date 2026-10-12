@@ -4,4 +4,8 @@
     <string name="title_activity_main">Dieta D&amp;A</string>
     <string name="package_name">com.danieldsh.dietadanialba</string>
     <string name="custom_url_scheme">com.danieldsh.dietadanialba</string>
+    <string name="shortcut_voz_short">Apuntar</string>
+    <string name="shortcut_voz_long">🎤 Apuntar en casa</string>
+    <string name="shortcut_casa_short">Despensa</string>
+    <string name="shortcut_casa_long">Ver la despensa</string>
 </resources>

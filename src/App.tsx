@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import type { Block, ProfileId } from './types';
 import { WeightToggle, Toast } from './components/ui';
 import { HomeScreen } from './screens/HomeScreen';
@@ -11,22 +12,31 @@ import { PlanScreen } from './screens/PlanScreen';
 import { SyncScreen } from './screens/SyncScreen';
 import { ProgressScreen } from './screens/ProgressScreen';
 import { MercadonaScreen } from './screens/MercadonaScreen';
+import { CasaScreen, type CasaView } from './screens/CasaScreen';
+import { ConfirmDaySheet } from './components/ConfirmDaySheet';
+import { onReminderTap, scheduleReminders } from './lib/notify';
+import { todayKey } from './lib/day';
+import { isNative } from './integrations/mercadona/http';
+import { loadSession } from './integrations/mercadona/session';
+import { makeClient } from './integrations/mercadona/service';
+import { syncOrders } from './integrations/mercadona/orders';
 import { useStore } from './store/AppStore';
 import { useBackHandler } from './lib/back';
 
-type Tab = 'inicio' | 'plan' | 'generar' | 'alimentos' | 'favoritos' | 'mas';
-type MoreView = 'menu' | 'progreso' | 'mercadona' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
+type Tab = 'inicio' | 'plan' | 'generar' | 'casa' | 'favoritos' | 'mas';
+type MoreView = 'menu' | 'alimentos' | 'progreso' | 'mercadona' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
 
 const TABS: { id: Tab; label: string; ico: string }[] = [
   { id: 'inicio', label: 'Hoy', ico: '🏠' },
   { id: 'plan', label: 'Plan', ico: '📅' },
   { id: 'generar', label: 'Generar', ico: '⚙️' },
-  { id: 'alimentos', label: 'Alimentos', ico: '🥕' },
+  { id: 'casa', label: 'Casa', ico: '🧺' },
   { id: 'favoritos', label: 'Favoritos', ico: '★' },
   { id: 'mas', label: 'Más', ico: '☰' },
 ];
 
 const MORE_ITEMS: { id: Exclude<MoreView, 'menu'>; ico: string; title: string; sub: string }[] = [
+  { id: 'alimentos', ico: '🥕', title: 'Alimentos', sub: 'Base de alimentos: valores, raciones, escáner de códigos' },
   { id: 'progreso', ico: '📈', title: 'Progreso', sub: 'Peso, tendencia y gráficas semanales de kcal y proteína' },
   { id: 'mercadona', ico: '🛒', title: 'Mercadona', sub: 'Cuenta, entrega, productos vinculados y diagnóstico' },
   { id: 'sync', ico: '☁️', title: 'Sincronizar', sub: 'Compartir datos entre los móviles de Dani y Alba' },
@@ -40,7 +50,12 @@ const MORE_ITEMS: { id: Exclude<MoreView, 'menu'>; ico: string; title: string; s
 const SYNC_ICON = { off: '', idle: '☁️', syncing: '🔄', error: '⚠️', offline: '📴' } as const;
 
 export default function App() {
-  const { syncStatus } = useStore();
+  const { syncStatus, data, fm, stockApply } = useStore();
+  const [casaView, setCasaView] = useState<CasaView | undefined>();
+  const [casaKey, setCasaKey] = useState(0);
+  const [confirmFecha, setConfirmFecha] = useState<string | null>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const [tab, setTab] = useState<Tab>('inicio');
   const [returnTo, setReturnTo] = useState<Tab>('inicio');
   const [more, setMore] = useState<MoreView>('menu');
@@ -68,6 +83,63 @@ export default function App() {
     return false;
   });
 
+  const openCasa = (v?: CasaView) => {
+    setCasaView(v);
+    setCasaKey((k) => k + 1);
+    setTab('casa');
+    window.scrollTo(0, 0);
+  };
+
+  // avisos del móvil: se reprograman al abrir y cuando cambia el plan / la configuración
+  const histKey = data.history.map((h) => `${h.fecha}${h.confirmado ? '✓' : ''}`).join(',');
+  useEffect(() => {
+    const t = setTimeout(() => scheduleReminders(dataRef.current, todayKey()), 2000);
+    return () => clearTimeout(t);
+  }, [histKey, data.stock.config.avisoNoche, data.stock.config.avisoRevision, data.stock.config.horaNoche, data.stock.config.ultimaRevision]);
+
+  // tocar un aviso / el acceso directo "🎤 Apuntar"
+  useEffect(() => {
+    const off = onReminderTap((route, fecha) => {
+      if (route === 'confirmar') setConfirmFecha(fecha ?? todayKey());
+      else openCasa(route === 'revision' ? 'revisar' : 'stock');
+    });
+    let h: { remove: () => void } | undefined;
+    if (isNative()) {
+      CapApp.addListener('appUrlOpen', ({ url }) => {
+        if (url.includes('voz') || url.includes('apuntar')) openCasa('voz' as CasaView);
+        else if (url.includes('casa')) openCasa('stock');
+      }).then((x) => (h = x));
+    }
+    return () => {
+      off();
+      h?.remove();
+    };
+  }, []);
+
+  // pedidos de Mercadona entregados → despensa (al abrir la app, como mucho cada 3 h)
+  useEffect(() => {
+    const check = async () => {
+      const d = dataRef.current;
+      if (!isNative() || !loadSession() || !d.stock.config.desde) return;
+      const last = d.stock.config.pedidosVisto ? new Date(d.stock.config.pedidosVisto).getTime() : 0;
+      if (Date.now() - last < 3 * 3600000) return;
+      try {
+        const r = await syncOrders(makeClient(d.mercadona.config), d, fm);
+        stockApply(r.change);
+        if (r.nuevos.length) showToast(`📦 Pedido de Mercadona sumado a la despensa (${r.nuevos.map((p) => (p.resumen ? p.resumen.alimentos + p.resumen.casa + p.resumen.nuevos : 0)).reduce((a, b) => a + b, 0)} productos)`);
+      } catch {
+        /* sin conexión o sesión: se reintenta luego */
+      }
+    };
+    const t = setTimeout(check, 4000);
+    const onVis = () => document.visibilityState === 'visible' && check();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [fm, stockApply, showToast]);
+
   const goGenerate = (b: Block, fecha?: string, para?: ProfileId | 'ambos') => {
     setReturnTo(tab);
     setPreset({ bloque: b, fecha, para });
@@ -84,8 +156,8 @@ export default function App() {
         ? 'Plan semanal'
         : tab === 'generar'
         ? 'Generador A/B/C'
-        : tab === 'alimentos'
-          ? 'Alimentos'
+        : tab === 'casa'
+          ? 'Casa'
           : tab === 'favoritos'
             ? 'Favoritos'
             : moreItem?.title ?? 'Más';
@@ -138,7 +210,7 @@ export default function App() {
       {tab === 'generar' && (
         <GeneratorScreen key={genKey} preset={preset} onToast={showToast} onUsed={() => setTab(returnTo === 'plan' ? 'plan' : 'inicio')} />
       )}
-      {tab === 'alimentos' && <FoodsScreen onToast={showToast} />}
+      {tab === 'casa' && <CasaScreen key={casaKey} initialView={casaView} onToast={showToast} />}
       {tab === 'favoritos' && <FavoritesScreen onToast={showToast} />}
       {tab === 'mas' && more === 'menu' && (
         <div className="screen">
@@ -156,6 +228,7 @@ export default function App() {
           </div>
         </div>
       )}
+      {tab === 'mas' && more === 'alimentos' && <FoodsScreen onToast={showToast} />}
       {tab === 'mas' && more === 'progreso' && <ProgressScreen onToast={showToast} />}
       {tab === 'mas' && more === 'mercadona' && <MercadonaScreen onToast={showToast} />}
       {tab === 'mas' && more === 'sync' && <SyncScreen onToast={showToast} />}
@@ -187,6 +260,17 @@ export default function App() {
           ))}
         </div>
       </nav>
+      {confirmFecha && (
+        <ConfirmDaySheet
+          fecha={confirmFecha}
+          onClose={() => setConfirmFecha(null)}
+          onEdit={() => {
+            setTab('inicio');
+            window.scrollTo(0, 0);
+          }}
+          onToast={showToast}
+        />
+      )}
       {toast && <Toast text={toast} onDone={clearToast} />}
     </div>
   );

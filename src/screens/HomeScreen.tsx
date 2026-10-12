@@ -24,6 +24,7 @@ import { CookMode } from '../components/CookMode';
 import { ExtraSheet } from '../components/ExtraSheet';
 import { MacroBar, NumberInput, Progress, Sheet } from '../components/ui';
 import { FavThumb } from './FavoritesScreen';
+import { dayMeals } from '../lib/day';
 
 const BLOCK_NAMES: Record<Block, string> = {
   A: 'Desayuno / preentreno',
@@ -46,7 +47,7 @@ export function HomeScreen({
   onProgress: () => void;
   onToast: (t: string) => void;
 }) {
-  const { data, fm, cm, getDay, setDaySlot, setPersonSlot, splitBlock, joinBlock, placeMeal, copyBlockTo, removeExtra, setCompensar, setDayTraining } =
+  const { data, fm, cm, getDay, setDaySlot, setPersonSlot, splitBlock, joinBlock, placeMeal, copyBlockTo, removeExtra, setCompensar, setDayTraining, confirmDay } =
     useStore();
   const fecha = todayKey();
   const ayer = addDays(fecha, -1);
@@ -165,6 +166,23 @@ export function HomeScreen({
 
   return (
     <div className="screen">
+      {new Date().getHours() >= 20 && !day?.confirmado && dayMeals(day).length > 0 && !!data.stock.config.desde && (
+        <div className="card tight row between">
+          <span className="small">🍽️ ¿Habéis comido lo planificado hoy?</span>
+          <span className="row" style={{ gap: 6 }}>
+            <button
+              className="btn small primary"
+              onClick={() => {
+                confirmDay(fecha, true);
+                onToast('✅ Día confirmado: despensa al día');
+              }}
+            >
+              Sí
+            </button>
+            <span className="tiny muted">o corrige abajo</span>
+          </span>
+        </div>
+      )}
       <div className="row between">
         <div>
           <h2 style={{ fontSize: '1.3rem' }}>Hoy</h2>

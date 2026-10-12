@@ -53,6 +53,8 @@ export interface GeneratorRequest {
   opcionales: string[];
   prohibidos: string[];
   disponibles: string[];
+  /** caducan pronto: se priorizan mucho (para no tirarlos) */
+  caducan?: string[];
   estilo: Style;
   filtros: GeneratorFilters;
   /** nº de opciones (3-5). Por defecto 4 */
@@ -404,6 +406,7 @@ function rankFood(f: Food, req: GeneratorRequest, pop: Record<string, number>, l
   let s = 0;
   if (req.opcionales.includes(f.id)) s += 3;
   if (req.disponibles.includes(f.id)) s += 1;
+  if (req.caducan?.includes(f.id)) s += 4;
   s += 0.35 * Math.min(pop[f.id] ?? 0, 6);
   const kcal = Math.max(1, f.kcalPor100);
   switch (req.estilo) {

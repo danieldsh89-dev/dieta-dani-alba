@@ -380,9 +380,9 @@ export function compactEvents(events: StockEvent[], nowMs = Date.now()): StockEv
 
 const CASA_ZONES: [RegExp, StockZone][] = [
   [/congelad/i, 'congelador'],
-  [/limpieza|hogar|detergente|celulosa|papel/i, 'limpieza'],
-  [/cabello|facial|corporal|higiene|parafarmacia|maquillaje|bebé|bebe|afeitado|dental|perfum/i, 'bano'],
-  [/agua|refresco|bodega|zumo|cerveza|vino|bebida/i, 'bebidas'],
+  [/limpieza|hogar|detergente|celulosa|papel|lavavajillas|friegaplatos|suavizante|lej[ií]a|fregasuelos|multiusos|quitagrasas|estropajo|bolsas? de basura|servilleta|ambientador|bayeta|limpiacristales|wc/i, 'limpieza'],
+  [/cabello|facial|corporal|higiene|parafarmacia|maquillaje|bebé|bebe|afeitado|dental|perfum|champ[uú]|gel de ba|desodorante|dent[ií]frico|pasta de dientes|cepillo|compresa|tamp[oó]n|colonia|maquinilla|crema|jab[oó]n de manos/i, 'bano'],
+  [/agua|refresco|bodega|zumo|cerveza|vino|bebida|cola|fanta|t[eé] (rojo|helado)|t[oó]nica/i, 'bebidas'],
   [/fruta|verdura/i, 'fruta'],
   [/charcut|queso|huevo|leche|carne|pescado|marisco|yogur|postre|preparad|pizza|mantequilla/i, 'nevera'],
 ];

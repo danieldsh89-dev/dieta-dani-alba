@@ -214,3 +214,24 @@ describe('cesta: lo que hay en casa se descuenta', () => {
     expect(r.acciones[0]).toMatchObject({ tipo: 'comprar', cantidad: 1000 });
   });
 });
+
+describe('voz: recuento desde cero', () => {
+  const d = data();
+  const cat = vozCatalog(d, seed.foods);
+  const p = (t: string) => parseVoz(t, cat, '2026-10-12');
+
+  it('cosas nuevas con y sin cantidad', () => {
+    expect(p('hay suavizante').acciones[0]).toMatchObject({ tipo: 'nuevo', nombre: 'suavizante', nivel: 'ok' });
+    expect(p('hay 3 rollos de papel de cocina').acciones[0]).toMatchObject({ tipo: 'nuevo', nombre: 'papel de cocina', cantidad: 3, unidad: 'ud' });
+    const c = applyVoz(p('tenemos lavavajillas').acciones, '2026-10-12');
+    expect(c.items[0]).toMatchObject({ nombre: 'Lavavajillas', tipo: 'estado', zona: 'limpieza' });
+  });
+
+  it('plurales, sinónimos y "y medio"', () => {
+    const r = p('hay 6 huevos, 2 leches semidesnatadas y medio paquete de arroz blanco');
+    expect(r.acciones.map((a) => (a as { ref?: { id: string } }).ref?.id)).toEqual(['huevo', 'leche_semi', 'arroz']);
+    expect(p('hay 2 kilos de patatas').acciones[0]).toMatchObject({ tipo: 'hay', cantidad: 2000 });
+    expect(p('quedan 2 kilos y medio de arroz blanco').acciones[0]).toMatchObject({ cantidad: 2500 });
+    expect(p('quedan uno y medio de huevos').acciones[0]).toMatchObject({ cantidad: 1.5 });
+  });
+});

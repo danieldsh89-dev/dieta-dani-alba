@@ -7,7 +7,7 @@
  */
 import type { AppData, Food, MercaProduct, StockEvent, StockItem, StockLevel } from '../types';
 import { addDays, dateKey, parseDate } from './planning';
-import { amountFromProduct, casaItem, ev, foodItem, itemProduct, shortName } from './stock';
+import { amountFromProduct, casaItem, ev, foodItem, itemProduct, nameTokens, shortName, zoneFor } from './stock';
 import { apuntar, posponer } from '../integrations/mercadona/habituales';
 
 // ───────── catálogo ─────────
@@ -22,6 +22,32 @@ export interface VozRef {
   product?: MercaProduct;
   item?: StockItem;
 }
+
+/** Cómo se llaman en voz los alimentos de la base (además de su nombre) */
+const FOOD_ALIASES: Record<string, string[]> = {
+  papa_fresca: ['patatas', 'papas', 'patata', 'papa'],
+  papa_bote: ['papas de bote', 'patatas de bote', 'papas cocidas', 'patatas cocidas'],
+  pollo_pechuga: ['pollo', 'pechugas de pollo', 'pechuga'],
+  huevo: ['huevos'],
+  leche_semi: ['leche', 'leches'],
+  pan_integral: ['pan de molde', 'pan'],
+  aceite_oliva: ['aceite'],
+  arroz: ['arroz'],
+  yogur_0: ['yogur natural', 'yogures naturales'],
+  yogur_griego_0: ['yogur griego', 'griegos'],
+  pavo_lonchas: ['pavo', 'jamon de pavo'],
+  queso_batido: ['queso batido'],
+  havarti_light: ['queso en lonchas', 'havarti'],
+  mozzarella_rallada: ['queso rallado'],
+  frutos_rojos_cong: ['frutos rojos'],
+  fresa_platano_cong: ['fresa y platano'],
+  mix_tropical: ['mix tropical', 'fruta tropical'],
+  arroz_coliflor: ['coliflor', 'migas de coliflor'],
+  tortilla_maiz: ['tortillas', 'tortillas de maiz'],
+  bebida_almendras: ['bebida de almendras', 'leche de almendras'],
+  contramuslo: ['contramuslos'],
+  carne_picada: ['carne picada', 'picada'],
+};
 
 export function vozCatalog(d: AppData, foods: Food[]): VozRef[] {
   const out: VozRef[] = [];
@@ -47,7 +73,9 @@ export type VozAccion =
   | { tipo: 'apuntar'; ref?: VozRef; nuevo?: string; texto: string }
   | { tipo: 'quitar'; ref: VozRef; texto: string }
   | { tipo: 'caduca'; ref: VozRef; fecha: string; texto: string }
-  | { tipo: 'resto_ok'; texto: string };
+  | { tipo: 'resto_ok'; texto: string }
+  /** algo que aún no está en la despensa ("hay suavizante", "hay 3 rollos de papel de cocina") */
+  | { tipo: 'nuevo'; nombre: string; cantidad?: number; unidad: StockItem['unidad']; nivel: StockLevel; texto: string };
 
 export interface VozResult {
   acciones: VozAccion[];
@@ -70,7 +98,7 @@ interface Rule {
   type: RuleType;
 }
 
-const NUM = '(\\d+(?:[.,]\\d+)?|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|media|medio)';
+const NUM = '(\\d+(?:[.,]\\d+)?|uno|una|un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|media|medio)';
 
 // El orden importa: lo más específico primero.
 const RULES: Rule[] = [
@@ -82,6 +110,8 @@ const RULES: Rule[] = [
   { re: new RegExp(`\\b(queda(n)?|tengo|tenemos|hay|tenemos|habra|hay como) ${NUM}\\b`), type: 'hay' },
   { re: /\b((he |hemos )?(comprado|compre|compramos|repuesto|repuse|traido|traje)|ha(n)? llegado|llego|llegaron)\b/, type: 'comprar' },
   { re: /\b(ya (hay|tengo|tenemos)|de sobra|lleno|llena|hay bastante|hay suficiente|esta bien|estan bien)\b/, type: 'ok' },
+  // recuento: "hay suavizante", "tenemos lavavajillas" (sin cantidad: hay)
+  { re: /^(y )?(hay|tenemos|tengo|queda|quedan|nos queda|nos quedan|me queda|me quedan)\b/, type: 'ok' },
   { re: /\b((me |nos )?(he |hemos )?(gastado|gaste|gastamos|usado|use|usamos|consumido|consumi|tomado|tome|bebido|bebi|abierto|abri|comido|comi|comimos|cogido|cogi|gasto))\b/, type: 'gastar' },
 ];
 
@@ -108,7 +138,7 @@ function findQuantity(clause: string): Qty | null {
   if (/\b(una )?docena\b/.test(clause)) return { value: 12, unit: null, text: clause.match(/\b(una )?docena\b/)![0] };
   const par = clause.match(/\bun par( de)?\b/);
   if (par) return { value: 2, unit: null, text: par[0] };
-  const m = clause.match(new RegExp(`\\b${NUM}(?: y medi[oa])?(?: (g|gr|gramos?|kg|kilos?|l|litros?|ml|mililitros|cl)\\b| ${PACK}\\b)?`));
+  const m = clause.match(new RegExp(`\\b${NUM}\\b(?: y medi[oa])?(?: (g|gr|gramos?|kg|kilos?|l|litros?|ml|mililitros|cl)\\b| ${PACK}\\b)?(?: y medi[oa]\\b)?`));
   if (!m) return null;
   let value = WORD_NUM[m[1]] ?? Number(m[1].replace(',', '.'));
   if (/ y medi[oa]/.test(m[0])) value += 0.5;
@@ -154,7 +184,7 @@ interface Term {
 function buildTerms(cat: VozRef[]): Term[] {
   const terms: Term[] = [];
   for (const r of cat) {
-    const names = [r.nombre, ...(r.item?.aliases ?? [])];
+    const names = [r.nombre, ...(r.item?.aliases ?? []), ...(r.food ? (FOOD_ALIASES[r.food.id] ?? []) : [])];
     for (const n of names) for (const v of variants(normalize(n))) terms.push({ term: v, ref: r });
   }
   return terms.sort((a, b) => b.term.length - a.term.length);
@@ -176,13 +206,20 @@ const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function findRef(clause: string, terms: Term[]): { ref: VozRef; text: string } | null {
   for (const t of terms) if (new RegExp(`\\b${esc(t.term)}\\b`).test(clause)) return { ref: t.ref, text: t.term };
   // errores de dictado: "lavavagillas", "yogurt"
-  for (const word of clause.split(' ').filter((w) => w.length >= 4)) {
+  for (const word of clause.split(' ').filter((w) => w.length >= 5)) {
     for (const t of terms) {
-      if (t.term.includes(' ')) continue;
-      if (levenshtein(word, t.term) <= (t.term.length >= 7 ? 2 : 1)) return { ref: t.ref, text: word };
+      if (t.term.includes(' ') || t.term.length < 6 || t.term[0] !== word[0]) continue;
+      if (levenshtein(word, t.term) <= (t.term.length >= 8 ? 2 : 1)) return { ref: t.ref, text: word };
     }
   }
-  return null;
+  // plurales en cualquier palabra: "leches semidesnatadas" → Leche semidesnatada
+  const said = new Set(nameTokens(clause));
+  let best: { ref: VozRef; n: number } | null = null;
+  for (const t of terms) {
+    const want = nameTokens(t.ref.nombre.split(' (')[0]);
+    if (want.length >= 1 && want.every((w) => said.has(w)) && (!best || want.length > best.n)) best = { ref: t.ref, n: want.length };
+  }
+  return best ? { ref: best.ref, text: '' } : null;
 }
 
 /** Candidatos cuyo nombre contiene todas las palabras dichas: "pollo" → pechuga de pollo, contramuslo de pollo… */
@@ -206,7 +243,7 @@ const STOPWORDS = new Set(
 function leftover(clause: string, remove: string[], accents: Map<string, string>): string {
   let rest = clause.replace(/\b(a|en|de) la lista( de la compra)?\b/, ' ');
   for (const r of remove) if (r) rest = rest.replace(r, ' ');
-  rest = rest.replace(new RegExp(`\\b${PACK}\\b`, 'g'), ' ');
+  rest = rest.replace(new RegExp(`\\b${PACK}\\b`, 'g'), ' ').replace(/\b(kilos?|kg|gramos?|gr|g|litros?|l|ml|mililitros|cl)\b/g, ' ');
   const words = rest.split(/\s+/).filter((w) => w && !/^\d/.test(w));
   while (words.length && STOPWORDS.has(words[0])) words.shift();
   while (words.length && STOPWORDS.has(words[words.length - 1])) words.pop();
@@ -259,9 +296,15 @@ export function parseVoz(text: string, cat: VozRef[], hoy: string): VozResult {
   const terms = buildTerms(cat);
   const clauses = normalize(text)
     .replace(/^(oye|vale|a ver|bueno) /, '')
-    .split(/(?<!\d)[.,;]|[.,;](?!\d)|\s+(?:y|e|tambien|ademas|luego)\s+(?!medi)/)
+    .split(/(?<!\d)[.,;]|[.,;](?!\d)|\s+(?:y|e|tambien|ademas|luego)\s+/)
     .map((c) => c.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .reduce<string[]>((acc, c) => {
+      const prev = acc[acc.length - 1];
+      if (prev && /^medi[oa]\b/.test(c) && /(\d|\b(un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)|kilos?|litros?|gramos?)$/.test(prev)) acc[acc.length - 1] = `${prev} y ${c}`;
+      else acc.push(c);
+      return acc;
+    }, []);
 
   const acciones: VozAccion[] = [];
   const dudas: string[] = [];
@@ -318,7 +361,20 @@ export function parseVoz(text: string, cat: VozRef[], hoy: string): VozResult {
         else if (rest) dudas.push(`No he entendido "${clause}".`);
         continue;
       }
-      if (rest) dudas.push(`No encuentro "${rest}". Si es algo nuevo, di "apunta ${rest}".`);
+      // algo nuevo en un recuento o una compra: se crea en la despensa
+      if ((rule.type === 'hay' || rule.type === 'ok' || rule.type === 'comprar') && rest && rest.split(' ').length <= 5) {
+        const masa = !!qty?.unit && qty.unit !== 'pack';
+        acciones.push({
+          tipo: 'nuevo',
+          nombre: rest,
+          cantidad: qty ? (masa ? qty.value * TO_BASE[qty.unit!] : qty.value) : undefined,
+          unidad: masa ? (qty!.unit === 'g' || qty!.unit === 'kg' ? 'g' : 'ml') : 'ud',
+          nivel: qty && qty.value === 0 ? 'agotado' : 'ok',
+          texto: clause,
+        });
+        continue;
+      }
+      if (rest) dudas.push(`No encuentro "${rest}". Si es algo nuevo, di "apunta ${rest}" o "hay ${rest}".`);
       continue;
     }
 
@@ -342,7 +398,8 @@ export function parseVoz(text: string, cat: VozRef[], hoy: string): VozResult {
         break;
       case 'hay':
         if (cant === undefined) {
-          if (ref.tipo === 'estado' && qty) acciones.push({ tipo: 'nivel', ref, nivel: qty.value > 0 ? 'ok' : 'agotado', texto: clause });
+          // no se sabe cuánto trae el envase: al menos se sabe si hay (la cantidad llegará con el próximo pedido)
+          if (qty) acciones.push({ tipo: 'nivel', ref, nivel: qty.value <= 0 ? 'agotado' : qty.value < 1 ? 'poco' : 'ok', texto: clause });
           else dudas.push(`¿Cuánto ${ref.nombre} queda? Di, por ejemplo, "quedan 500 gramos de ${ref.nombre}".`);
         } else acciones.push({ tipo: 'hay', ref, cantidad: cant, texto: clause });
         break;
@@ -392,6 +449,14 @@ export function applyVoz(acciones: VozAccion[], hoy: string, origen: StockEvent[
   };
   for (const a of acciones) {
     if (a.tipo === 'resto_ok') continue;
+    if (a.tipo === 'nuevo') {
+      const contado = a.cantidad !== undefined;
+      const it = casaItem(capitalize(a.nombre), hoy, { tipo: contado ? 'contado' : 'estado', unidad: a.unidad, zona: zoneFor(a.nombre) });
+      events.push(contado ? ev(it.id, 'set', { valor: a.cantidad }, origen, at) : ev(it.id, 'nivel', { nivel: a.nivel }, origen, at));
+      touch(it);
+      resumen.push(`🆕 ${it.nombre}: ${contado ? `hay ${a.cantidad} ${a.unidad}` : 'hay'}`);
+      continue;
+    }
     if (a.tipo === 'apuntar' && !a.ref) {
       const it = casaItem(capitalize(a.nuevo!), hoy, { apuntado: true });
       touch(it);

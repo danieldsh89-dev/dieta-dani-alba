@@ -6,7 +6,7 @@ import { formatDay } from '../lib/planning';
 import { amountText, DIAS_OLVIDO, ev, itemProduct, qtyUnits, reponerDe, stepFor, ZONES, type ItemState } from '../lib/stock';
 import { QtyEditor } from './QtyEditor';
 import { frecuencia, frecuenciaText, gastoMes, registrarCompra } from '../integrations/mercadona/habituales';
-import { MercaProductPicker, ProductRow } from './MercaLinkSheet';
+import { MercaLinkSheet, MercaProductPicker, ProductRow } from './MercaLinkSheet';
 import { Sheet } from './ui';
 
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
@@ -22,6 +22,7 @@ export function StockItemSheet({ item, state, onClose, onToast }: { item: StockI
   const product = itemProduct(data, item);
   const step = stepFor(item, food, product);
   const [picking, setPicking] = useState(false);
+  const [linkFood, setLinkFood] = useState(false);
   const [more, setMore] = useState(false);
   const save = (patch: Partial<StockItem>) => stockApply({ items: [{ ...item, ...patch }] });
   const emit = (tipo: 'set' | 'delta' | 'nivel', data2: { valor?: number; nivel?: StockLevel }, msg: string) => {
@@ -186,7 +187,10 @@ export function StockItemSheet({ item, state, onClose, onToast }: { item: StockI
       {item.foodId && (
         <div className="tiny muted">
           Alimento de la dieta: se descuenta solo con las comidas registradas.{' '}
-          {product ? `Producto: ${product.nombre}.` : 'Sin producto de Mercadona vinculado (Plan → Compra → 🛒 Mercadona).'}
+          {product ? `Producto: ${product.nombre}.` : 'Sin producto de Mercadona vinculado.'}{' '}
+          <button className="btn small" onClick={() => setLinkFood(true)}>
+            {product ? 'Cambiar producto' : '🛒 Elegir producto'}
+          </button>
         </div>
       )}
 
@@ -248,6 +252,7 @@ export function StockItemSheet({ item, state, onClose, onToast }: { item: StockI
           )}
         </>
       )}
+      {linkFood && food && <MercaLinkSheet food={food} onClose={() => setLinkFood(false)} onToast={onToast} />}
       {picking && (
         <MercaProductPicker
           title={`🛒 ${item.nombre}`}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { MercaLinkSheet } from '../components/MercaLinkSheet';
 import type { Block, Category, Food, FoodTag, NutritionState, Unit, Verification } from '../types';
 import { BLOCKS } from '../types';
 import { newId, useStore } from '../store/AppStore';
@@ -164,6 +165,7 @@ function FoodForm({
   const [f, setF] = useState<Food>(structuredClone(food));
   const [advanced, setAdvanced] = useState(!data.foods.some((x) => x.id === food.id) ? false : true);
   const isNew = !data.foods.some((x) => x.id === food.id);
+  const [linking, setLinking] = useState(false);
   const v = validateFood(f);
   const set = <K extends keyof Food>(k: K, val: Food[K]) => setF((p) => ({ ...p, [k]: val }));
   const num = (k: 'kcalPor100' | 'proteinaPor100' | 'carbohidratosPor100' | 'grasasPor100' | 'porcionMinima' | 'porcionMaxima' | 'incremento' | 'porcionHabitual') =>
@@ -188,6 +190,19 @@ function FoodForm({
         </button>
       }
     >
+      {!isNew && (
+        <button className="list-item" style={{ padding: '8px 10px' }} onClick={() => setLinking(true)}>
+          <span className="thumb">🛒</span>
+          <span className="grow col" style={{ gap: 1, textAlign: 'left' }}>
+            <span className="small">
+              <b>Producto de Mercadona</b> {data.mercadona.links[food.id] && !data.mercadona.links[food.id].confirmado && <span className="badge warn">sugerido</span>}
+            </span>
+            <span className="tiny muted">{data.mercadona.links[food.id]?.product.nombre ?? 'Sin vincular: toca para elegirlo'}</span>
+          </span>
+          <span className="muted">›</span>
+        </button>
+      )}
+      {linking && <MercaLinkSheet food={food} onClose={() => setLinking(false)} onToast={onToast} />}
       <div className="row">
         {f.foto ? <img className="thumb" src={f.foto} alt="" style={{ width: 56, height: 56 }} /> : <div className="thumb" style={{ width: 56, height: 56 }}>{CATEGORY_ICONS[f.categoria]}</div>}
         <label className="btn small">

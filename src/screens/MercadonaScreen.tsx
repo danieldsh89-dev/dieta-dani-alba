@@ -6,11 +6,12 @@ import { isNative } from '../integrations/mercadona/http';
 import { clearSession, decodeLinkCode, loadSession, saveSession, type MercaSession } from '../integrations/mercadona/session';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { NumberInput, Warnings } from '../components/ui';
+import { MercaLinksManager } from './MercaLinks';
 
 const fecha = (iso?: string) => (iso ? new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 
 export function MercadonaScreen({ onToast }: { onToast: (t: string) => void }) {
-  const { data, setMercaConfig, setMercaLink } = useStore();
+  const { setMercaConfig, data } = useStore();
   const cfg = data.mercadona.config;
   const native = isNative();
   const [session, setSession] = useState<MercaSession | undefined>(loadSession());
@@ -21,8 +22,6 @@ export function MercadonaScreen({ onToast }: { onToast: (t: string) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [diag, setDiag] = useState<DiagStep[] | null>(null);
   const [adv, setAdv] = useState(false);
-  const [links, setLinks] = useState(false);
-  const linked = Object.values(data.mercadona.links);
 
   const run = async (label: string, fn: () => Promise<void>) => {
     setBusy(label);
@@ -180,42 +179,7 @@ export function MercadonaScreen({ onToast }: { onToast: (t: string) => void }) {
       {busy && <div className="sub">⏳ {busy}</div>}
       {error && <Warnings items={[{ level: 'error', text: error }]} />}
 
-      <div className="card">
-        <div className="row between">
-          <b>3 · Productos vinculados ({linked.length})</b>
-          <button className="btn small" onClick={() => setLinks(!links)}>
-            {links ? 'Ocultar' : 'Ver'}
-          </button>
-        </div>
-        <div className="tiny muted">Se eligen la primera vez desde Plan → Compra → 🛒 Mercadona y se reutilizan siempre.</div>
-        {(cfg.otraTienda ?? []).length > 0 && (
-          <div className="small" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-            <b>🏪 No se compran en Mercadona:</b>
-            {(cfg.otraTienda ?? []).map((id) => (
-              <div key={id} className="row between">
-                <span className="grow">{data.foods.find((f) => f.id === id)?.nombre.split(' (')[0] ?? id}</span>
-                <button className="btn small" onClick={() => setMercaConfig({ otraTienda: (cfg.otraTienda ?? []).filter((x) => x !== id) })}>
-                  ↺ Volver a Mercadona
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {links &&
-          linked
-            .sort((a, b) => a.product.nombre.localeCompare(b.product.nombre))
-            .map((l) => (
-              <div key={l.foodId} className="row between small" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-                <span className="grow">
-                  <b>{data.foods.find((f) => f.id === l.foodId)?.nombre.split(' (')[0] ?? l.foodId}</b> → {l.product.nombre}{' '}
-                  {!l.confirmado && <span className="badge warn">sugerido</span>}
-                </span>
-                <button className="iconbtn" aria-label="Desvincular" onClick={() => setMercaLink(l.foodId, undefined)}>
-                  ✕
-                </button>
-              </div>
-            ))}
-      </div>
+      <MercaLinksManager onToast={onToast} />
 
       <div className="card">
         <div className="row between">

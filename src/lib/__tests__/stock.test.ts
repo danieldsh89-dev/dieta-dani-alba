@@ -176,7 +176,7 @@ describe('voz', () => {
     const c = applyVoz(r.acciones, hoy, 'voz', '2026-10-12T10:00:00Z');
     expect(c.events).toHaveLength(2);
     expect(c.events[0]).toMatchObject({ item: 'huevo', tipo: 'set', valor: 4 });
-    expect(c.items.find((i) => i.id === 'lav')!.apuntado).toBe(true); // agotado → a la lista
+    expect(c.events[1]).toMatchObject({ item: 'lav', tipo: 'nivel', nivel: 'agotado' }); // el modo decide si entra en la compra
     expect(c.tocados).toEqual(['huevo', 'lav']);
   });
 });
@@ -233,5 +233,54 @@ describe('voz: recuento desde cero', () => {
     expect(p('hay 2 kilos de patatas').acciones[0]).toMatchObject({ tipo: 'hay', cantidad: 2000 });
     expect(p('quedan 2 kilos y medio de arroz blanco').acciones[0]).toMatchObject({ cantidad: 2500 });
     expect(p('quedan uno y medio de huevos').acciones[0]).toMatchObject({ cantidad: 1.5 });
+  });
+});
+
+describe('cómo se repone (habitual / preguntar / no reponer)', () => {
+  const st = { nivel: 'agotado', fuente: 'estimado' } as const;
+  const base = { ...S.casaItem('Yogur de mango', '2026-09-01'), id: 'y', compras: ['2026-10-01'] };
+  const hoy = '2026-10-12';
+
+  it('habitual entra solo; preguntar va a "¿Volver a comprar?"; nunca no entra (salvo apuntado)', () => {
+    expect(S.otroEnCompra(base, st, '2026-10-18', hoy)).toBe(true);
+    const q = { ...base, reponer: 'preguntar' as const };
+    expect(S.otroEnCompra(q, st, '2026-10-18', hoy)).toBe(false);
+    expect(S.preguntarReponer(q, st, '2026-10-18', hoy)).toBe(true);
+    const n = { ...base, reponer: 'nunca' as const };
+    expect(S.otroEnCompra(n, st, '2026-10-18', hoy)).toBe(false);
+    expect(S.preguntarReponer(n, st, '2026-10-18', hoy)).toBe(false);
+    expect(S.otroEnCompra({ ...n, apuntado: true }, st, '2026-10-18', hoy)).toBe(true);
+  });
+
+  it('preguntar sin comprar en 2 meses deja de preguntar', () => {
+    const q = { ...base, reponer: 'preguntar' as const, compras: ['2026-08-01'] };
+    expect(S.reponerDe(q, hoy)).toBe('nunca');
+    expect(S.reponerDe({ ...q, compras: ['2026-09-01'] }, hoy)).toBe('preguntar');
+  });
+
+  it('nuevo en un pedido → preguntar; segunda compra → habitual (salvo "solo esta vez")', () => {
+    const yog = prod({ id: '55', nombre: 'Yogur de soja sabor mango' });
+    const o = (id: string, fecha: string) => ({ id, entrega: `${fecha}T15:00:00Z`, estado: 'delivered', status: 3 });
+    const line = [{ productId: '55', pedida: 1, preparada: 1, product: yog }];
+    const r1 = S.applyOrder(data(), fm, o('1', '2026-09-01'), line);
+    expect(r1.items[0].reponer).toBe('preguntar');
+    const d2 = data({ items: { [r1.items[0].id]: r1.items[0] } });
+    expect(S.applyOrder(d2, fm, o('2', '2026-10-01'), line).items[0].reponer).toBe('habitual');
+    const d3 = data({ items: { [r1.items[0].id]: { ...r1.items[0], soloEstaVez: true } } });
+    const r3 = S.applyOrder(d3, fm, o('3', '2026-10-01'), line).items[0];
+    expect(r3.reponer).toBe('preguntar');
+    expect(r3.soloEstaVez).toBeUndefined();
+  });
+
+  it('por voz', () => {
+    const d = data({ items: { y: base } });
+    const cat = vozCatalog(d, seed.foods);
+    expect(parseVoz('el yogur de mango no me gustó', cat, hoy).acciones[0]).toMatchObject({ tipo: 'modo', modo: 'nunca' });
+    const two = parseVoz('se acabó el yogur de mango y no me gustó', cat, hoy).acciones;
+    expect(two.map((a) => a.tipo)).toEqual(['nivel', 'modo']);
+    expect(parseVoz('el yogur de mango solo de vez en cuando', cat, hoy).acciones[0]).toMatchObject({ tipo: 'modo', modo: 'preguntar' });
+    const r = parseVoz('vuelve a comprar el yogur de mango siempre', cat, hoy);
+    expect(r.acciones[0]).toMatchObject({ tipo: 'modo', modo: 'habitual' });
+    expect(applyVoz(r.acciones, hoy).items[0].reponer).toBe('habitual');
   });
 });

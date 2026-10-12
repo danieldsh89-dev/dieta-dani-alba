@@ -291,6 +291,8 @@ function ItemRow({ it, s, onOpen }: { it: StockItem; s?: ItemState; onOpen: () =
       <span className="grow" style={{ minWidth: 0 }}>
         {it.nombre}
         {it.apuntado && <span className="badge info"> 📝</span>}
+        {it.reponer === 'nunca' && <span className="tiny muted"> 🚫</span>}
+        {it.reponer === 'preguntar' && <span className="tiny muted"> ❓</span>}
       </span>
       <span className={`badge ${s && s.fuente !== 'desconocido' ? NIVEL_BADGE[s.nivel] : ''}`} style={{ whiteSpace: 'nowrap' }}>
         {label}
@@ -346,10 +348,10 @@ function QuickRow({ it, s, onOpen, done }: { it: StockItem; s?: ItemState; onOpe
             <button className="btn small" onClick={() => put(ev(it.id, 'nivel', { nivel: 'ok' }, 'revision'))}>
               🟢 Hay
             </button>
-            <button className="btn small" onClick={() => stockApply({ items: [{ ...it, apuntado: true }], events: [ev(it.id, 'nivel', { nivel: 'poco' }, 'revision')] })}>
+            <button className="btn small" onClick={() => put(ev(it.id, 'nivel', { nivel: 'poco' }, 'revision'))}>
               🟡 Poco
             </button>
-            <button className="btn small" onClick={() => stockApply({ items: [{ ...it, apuntado: true }], events: [ev(it.id, 'nivel', { nivel: 'agotado' }, 'revision')] })}>
+            <button className="btn small" onClick={() => put(ev(it.id, 'nivel', { nivel: 'agotado' }, 'revision'))}>
               🔴 No
             </button>
           </>

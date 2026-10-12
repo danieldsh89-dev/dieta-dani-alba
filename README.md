@@ -279,3 +279,6 @@ Nueva pestaña **🧺 Casa** (Alimentos pasa a Más). Recoge las ideas útiles d
 - **Importar** el inventario de Despensa (⚙️ → archivo `despensa-v1`).
 
 Código: `src/lib/stock.ts` (motor), `src/lib/voz.ts` (intérprete), `src/integrations/mercadona/orders.ts` (pedidos), `src/screens/CasaScreen.tsx`. Tests en `src/lib/__tests__/stock.test.ts`.
+
+### v1.6.2 — Cómo se repone cada cosa
+Cada producto de casa tiene modo al acabarse: **🔁 habitual** (entra solo en la compra), **❓ preguntar** (sale en "¿Volver a comprar?" con [Sí, siempre] [Solo esta vez] [No]) o **🚫 no reponer**. Lo nuevo de un pedido empieza en ❓ y pasa a 🔁 si se compra otra vez; un ❓ sin comprar en 2 meses deja de preguntar. Se cambia cuando se quiera: ficha, cesta (al desmarcar) o voz ("no me gustó", "de vez en cuando", "vuelve a comprarlo siempre").

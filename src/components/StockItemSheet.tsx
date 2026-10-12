@@ -3,7 +3,7 @@ import type { StockItem, StockLevel } from '../types';
 import { useStore } from '../store/AppStore';
 import { todayKey } from '../lib/day';
 import { formatDay } from '../lib/planning';
-import { amountText, ev, itemProduct, stepFor, ZONES, type ItemState } from '../lib/stock';
+import { amountText, DIAS_OLVIDO, ev, itemProduct, reponerDe, stepFor, ZONES, type ItemState } from '../lib/stock';
 import { frecuencia, frecuenciaText, gastoMes, registrarCompra } from '../integrations/mercadona/habituales';
 import { MercaProductPicker, ProductRow } from './MercaLinkSheet';
 import { Sheet } from './ui';
@@ -94,10 +94,10 @@ export function StockItemSheet({ item, state, onClose, onToast }: { item: StockI
           <button className="btn small" onClick={() => emit('nivel', { nivel: 'ok' }, 'Marcado: hay')}>
             🟢 Hay
           </button>
-          <button className="btn small" onClick={() => (emit('nivel', { nivel: 'poco' }, 'Marcado: queda poco'), !item.foodId && save({ apuntado: true }))}>
+          <button className="btn small" onClick={() => emit('nivel', { nivel: 'poco' }, 'Marcado: queda poco')}>
             🟡 Queda poco
           </button>
-          <button className="btn small" onClick={() => (emit('nivel', { nivel: 'agotado' }, 'Marcado: no queda'), !item.foodId && save({ apuntado: true }))}>
+          <button className="btn small" onClick={() => emit('nivel', { nivel: 'agotado' }, 'Marcado: no queda')}>
             🔴 No queda
           </button>
         </div>
@@ -120,6 +120,40 @@ export function StockItemSheet({ item, state, onClose, onToast }: { item: StockI
         </label>
       </div>
 
+      {!item.foodId && (
+        <div className="col" style={{ gap: 4 }}>
+          <b className="small">Cuando se acabe…</b>
+          <div className="chips">
+            {(
+              [
+                ['habitual', '🔁 Reponer siempre'],
+                ['preguntar', '❓ Preguntarme'],
+                ['nunca', '🚫 No reponer'],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                className={`chip ${(item.reponer ?? 'habitual') === m ? 'on' : ''}`}
+                onClick={() => {
+                  save({ reponer: m, ...(m === 'nunca' ? { apuntado: false } : {}) });
+                  onToast(m === 'habitual' ? 'Se repondrá siempre' : m === 'preguntar' ? 'Te preguntaré antes de reponerlo' : 'No se repondrá solo');
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="tiny muted">
+            {item.reponer === 'preguntar' && reponerDe(item, todayKey()) === 'nunca'
+              ? `Lleva más de ${DIAS_OLVIDO / 30} meses sin comprarse: ya no pregunta (cámbialo cuando quieras).`
+              : (item.reponer ?? 'habitual') === 'habitual'
+                ? 'Al acabarse (o cuando toque por frecuencia) entra solo en la compra.'
+                : item.reponer === 'preguntar'
+                  ? 'Al acabarse sale en “¿Volver a comprar?” en la cesta. Si lo compras otra vez, pasa a habitual.'
+                  : 'No entra solo en la compra. Si un día lo quieres, apúntalo (o di “apunta …”).'}
+          </div>
+        </div>
+      )}
       {!item.foodId && (
         <div className="card tight">
           <b className="small">🛒 Producto de Mercadona</b>

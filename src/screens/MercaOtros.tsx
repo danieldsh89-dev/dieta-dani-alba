@@ -5,7 +5,8 @@ import { todayKey } from '../lib/day';
 import { formatDay } from '../lib/planning';
 import { sizeText } from '../integrations/mercadona/basket';
 import { apuntar, estado, frecuenciaText, gastoMes, nuevoHabitual, posponer, precioHabitual, proxima } from '../integrations/mercadona/habituales';
-import { computeStock, otroEnCompra, type ItemState } from '../lib/stock';
+import { computeStock, otroEnCompra, preguntarReponer, type ItemState } from '../lib/stock';
+import { Sheet } from '../components/ui';
 import { MercaProductPicker } from '../components/MercaLinkSheet';
 import { StockItemSheet } from '../components/StockItemSheet';
 
@@ -18,20 +19,23 @@ export function OtrosCard({ hasta, onToast }: { hasta: string; onToast: (t: stri
   const [editId, setEditId] = useState<string | null>(null);
   const [linkId, setLinkId] = useState<string | null>(null);
   const [verTodos, setVerTodos] = useState(false);
+  const [quitar, setQuitar] = useState<StockItem | null>(null);
   const hoy = todayKey();
   const states = useMemo(() => computeStock(data, fm, cm), [data, fm, cm]);
   const otros = Object.values(data.stock.items)
     .filter((it) => !it.foodId)
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
   const enCompra = otros.filter((it) => otroEnCompra(it, states[it.id], hasta, hoy));
-  const resto = otros.filter((it) => !otroEnCompra(it, states[it.id], hasta, hoy));
+  const preguntas = otros.filter((it) => preguntarReponer(it, states[it.id], hasta, hoy));
+  const resto = otros.filter((it) => !otroEnCompra(it, states[it.id], hasta, hoy) && !preguntas.includes(it));
   const pronto = resto.filter((it) => estado(it, hasta) === 'pronto');
   const mes = otros.reduce((t, it) => t + (gastoMes(it) ?? 0), 0);
   const edit = editId ? data.stock.items[editId] : undefined;
   const linking = linkId ? data.stock.items[linkId] : undefined;
 
   const save = (it: StockItem) => stockApply({ items: [it] });
-  const toggle = (it: StockItem) => save(otroEnCompra(it, states[it.id], hasta, hoy) ? posponer(it, hasta) : apuntar(it));
+  // desmarcar algo que tocaba: ¿solo esta vez, preguntar la próxima o no reponer más?
+  const toggle = (it: StockItem) => (otroEnCompra(it, states[it.id], hasta, hoy) ? setQuitar(it) : save(apuntar(it)));
   const step = (it: StockItem) => (it.product && it.product.sellingMethod !== 0 ? it.product.incBunch || 0.1 : 1);
   const setQty = (it: StockItem, q: number) => save({ ...it, qty: Math.max(step(it), Math.round(q * 1000) / 1000) });
 
@@ -92,6 +96,31 @@ export function OtrosCard({ hasta, onToast }: { hasta: string; onToast: (t: stri
         {mes > 0 ? ` Gasto habitual ≈ ${eur(mes)}/mes.` : ''}
       </div>
       {enCompra.length > 0 && <div className="list">{enCompra.map((it) => row(it, true))}</div>}
+      {preguntas.length > 0 && (
+        <div className="card tight">
+          <b className="small">❓ ¿Volver a comprar? ({preguntas.length})</b>
+          <div className="tiny muted">Se han acabado, pero no son habituales (p. ej., los compraste para probar).</div>
+          {preguntas.map((it) => (
+            <div key={it.id} className="col" style={{ gap: 4, borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+              <button className="food-name" style={{ textAlign: 'left' }} onClick={() => setEditId(it.id)}>
+                <span className="n small">{it.product?.nombre ?? it.nombre}</span>
+                {it.product && <span className="tiny muted">{eur(precioHabitual(it))}</span>}
+              </button>
+              <div className="btn-row" style={{ gap: 4 }}>
+                <button className="btn small primary" onClick={() => (save({ ...it, reponer: 'habitual' }), onToast(`${it.nombre}: habitual`))}>
+                  🔁 Sí, siempre
+                </button>
+                <button className="btn small" onClick={() => save({ ...apuntar(it), soloEstaVez: true })}>
+                  Solo esta vez
+                </button>
+                <button className="btn small" onClick={() => (save({ ...it, reponer: 'nunca', apuntado: false }), onToast(`${it.nombre}: no se repondrá`))}>
+                  🚫 No
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {otros.length === 0 && <div className="tiny muted">Aún no hay ninguno. Pulsa “➕ Añadir” o di “apunta papel higiénico”.</div>}
       {resto.length > 0 && (
         <button className="btn small" onClick={() => setVerTodos(!verTodos)}>
@@ -122,6 +151,22 @@ export function OtrosCard({ hasta, onToast }: { hasta: string; onToast: (t: stri
             setLinkId(null);
           }}
         />
+      )}
+      {quitar && (
+        <Sheet title={quitar.product?.nombre ?? quitar.nombre} onClose={() => setQuitar(null)}>
+          <div className="col">
+            <button className="btn primary" onClick={() => (save(posponer(quitar, hasta)), setQuitar(null))}>
+              ✕ Solo de esta compra
+            </button>
+            <button className="btn" onClick={() => (save({ ...posponer(quitar, hasta), reponer: 'preguntar' }), onToast('Te preguntaré la próxima vez'), setQuitar(null))}>
+              ❓ Preguntarme la próxima vez
+            </button>
+            <button className="btn" onClick={() => (save({ ...quitar, apuntado: false, reponer: 'nunca' }), onToast('No se repondrá solo'), setQuitar(null))}>
+              🚫 No volver a comprarlo
+            </button>
+          </div>
+          <div className="sub">Puedes cambiarlo cuando quieras en su ficha (o por voz: “vuelve a comprar … siempre”).</div>
+        </Sheet>
       )}
       {edit && <StockItemSheet item={edit} state={states[edit.id]} onClose={() => setEditId(null)} onToast={onToast} />}
     </div>

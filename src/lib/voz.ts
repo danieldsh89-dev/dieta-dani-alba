@@ -74,6 +74,8 @@ export type VozAccion =
   | { tipo: 'quitar'; ref: VozRef; texto: string }
   | { tipo: 'caduca'; ref: VozRef; fecha: string; texto: string }
   | { tipo: 'resto_ok'; texto: string }
+  /** cómo se repone al acabarse: "no me gustó", "de vez en cuando", "cómpralo siempre" */
+  | { tipo: 'modo'; ref: VozRef; modo: NonNullable<StockItem['reponer']>; texto: string }
   /** algo que aún no está en la despensa ("hay suavizante", "hay 3 rollos de papel de cocina") */
   | { tipo: 'nuevo'; nombre: string; cantidad?: number; unidad: StockItem['unidad']; nivel: StockLevel; texto: string };
 
@@ -113,6 +115,12 @@ const RULES: Rule[] = [
   // recuento: "hay suavizante", "tenemos lavavajillas" (sin cantidad: hay)
   { re: /^(y )?(hay|tenemos|tengo|queda|quedan|nos queda|nos quedan|me queda|me quedan)\b/, type: 'ok' },
   { re: /\b((me |nos )?(he |hemos )?(gastado|gaste|gastamos|usado|use|usamos|consumido|consumi|tomado|tome|bebido|bebi|abierto|abri|comido|comi|comimos|cogido|cogi|gasto))\b/, type: 'gastar' },
+];
+
+const MODOS: [RegExp, NonNullable<StockItem['reponer']>][] = [
+  [/\b(no (me|nos) (ha |han )?gust(o|aron|ado)|no (vuelvas|volvamos|volver) a comprar(lo|la|los|las)?|no (lo |la |los |las )?(compres|compremos|repongas) mas|no reponer|ya no (lo |la |los |las )?compramos|nunca mas|no lo quiero mas)\b/, 'nunca'],
+  [/\b(de vez en cuando|a veces|esporadic[oa]s?|preguntame|pregunta(me)? antes|no siempre)\b/, 'preguntar'],
+  [/\b(compra(lo|la|los|las)? siempre|siempre que se acab[ea]n?|repon(lo|la|los|las)? siempre|reponer siempre|vuelve a comprar(lo|la|los|las)?( siempre)?|es habitual|habitual)\b/, 'habitual'],
 ];
 
 const CADUCA = /\b(caduca|caducan|vence|vencen|consumir antes de|hay que gastar(lo|la|los|las)?)\b/;
@@ -309,10 +317,26 @@ export function parseVoz(text: string, cat: VozRef[], hoy: string): VozResult {
   const acciones: VozAccion[] = [];
   const dudas: string[] = [];
   let previous: Rule | null = null;
+  // último producto nombrado ("se acabó el yogur y no me gustó")
+  const lastRef = () => {
+    for (let i = acciones.length - 1; i >= 0; i--) {
+      const r = (acciones[i] as { ref?: VozRef }).ref;
+      if (r) return r;
+    }
+    return undefined;
+  };
 
   for (const clause of clauses) {
     if (RESTO_OK.test(clause)) {
       acciones.push({ tipo: 'resto_ok', texto: clause });
+      continue;
+    }
+    // cómo se repone
+    const modo = MODOS.find(([re]) => re.test(clause));
+    if (modo) {
+      const found = findRef(clause, terms) ?? (lastRef() ? { ref: lastRef()!, text: '' } : null);
+      if (found) acciones.push({ tipo: 'modo', ref: found.ref, modo: modo[1], texto: clause });
+      else dudas.push(`¿De qué producto hablas? No he entendido "${clause}".`);
       continue;
     }
     // caducidades
@@ -458,7 +482,8 @@ export function applyVoz(acciones: VozAccion[], hoy: string, origen: StockEvent[
       continue;
     }
     if (a.tipo === 'apuntar' && !a.ref) {
-      const it = casaItem(capitalize(a.nuevo!), hoy, { apuntado: true });
+      // algo nuevo apuntado a mano: si se acaba, se pregunta antes de volver a comprarlo
+      const it = casaItem(capitalize(a.nuevo!), hoy, { apuntado: true, reponer: 'preguntar' });
       touch(it);
       resumen.push(`📝 ${it.nombre}: apuntado (nuevo)`);
       continue;
@@ -473,7 +498,6 @@ export function applyVoz(acciones: VozAccion[], hoy: string, origen: StockEvent[
       case 'nivel':
         if (it.tipo === 'contado' && a.nivel === 'agotado') events.push(ev(it.id, 'set', { valor: 0 }, origen, at));
         else events.push(ev(it.id, 'nivel', { nivel: a.nivel }, origen, at));
-        if (a.nivel !== 'ok' && !it.foodId) it = apuntar(it);
         resumen.push(`${a.nivel === 'agotado' ? '🔴' : a.nivel === 'poco' ? '🟡' : '🟢'} ${it.nombre}: ${a.nivel === 'agotado' ? 'se acabó' : a.nivel === 'poco' ? 'queda poco' : 'hay'}`);
         break;
       case 'gastar':
@@ -496,6 +520,10 @@ export function applyVoz(acciones: VozAccion[], hoy: string, origen: StockEvent[
       case 'quitar':
         it = posponer(it, hoy);
         resumen.push(`✕ ${it.nombre}: quitado de la lista`);
+        break;
+      case 'modo':
+        it = { ...it, reponer: a.modo, ...(a.modo === 'nunca' ? { apuntado: false } : {}) };
+        resumen.push(`${a.modo === 'nunca' ? '🚫' : a.modo === 'preguntar' ? '❓' : '🔁'} ${it.nombre}: ${a.modo === 'nunca' ? 'no se repondrá' : a.modo === 'preguntar' ? 'se preguntará antes de reponer' : 'se repone siempre'}`);
         break;
       case 'caduca':
         it = { ...it, caduca: a.fecha };

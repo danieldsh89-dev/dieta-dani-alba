@@ -465,10 +465,15 @@ export function applyOrder(d: AppData, fm: FoodMap, order: OrderSummary, lines: 
         zona,
         tipo: tipoFor(zona, `${l.categoria ?? ''} ${l.product.nombre}`),
         qty: l.pedida || 1,
+        // lo nuevo puede ser una prueba: al acabarse, se pregunta
+        reponer: 'preguntar',
       };
       resumen.nuevos++;
     } else resumen.casa++;
     it = registrarCompra({ ...it, product: l.product ?? it.product }, fecha, l.pedida || it.qty);
+    // la segunda compra lo convierte en habitual (salvo que se dijera "no reponer")
+    if (it.soloEstaVez) it = { ...it, soloEstaVez: undefined };
+    else if (it.reponer === 'preguntar' && new Set(it.compras).size >= 2) it = { ...it, reponer: 'habitual' };
     items.set(it.id, it);
     events.push(
       it.tipo === 'contado'
@@ -518,12 +523,37 @@ export function caducanPronto(d: AppData, states: Record<string, ItemState>, hoy
 export const daysLeft = (fecha: string, hoy: string) => Math.round((parseDate(fecha).getTime() - parseDate(hoy).getTime()) / 86400000);
 
 /** ¿Un artículo de casa (no de la dieta) va en la compra que cubre hasta `hasta`? */
+export type Reponer = NonNullable<StockItem['reponer']>;
+
+/** días sin comprar tras los que un "preguntar" deja de preguntar (pasa a no reponer) */
+export const DIAS_OLVIDO = 60;
+
+/** Modo efectivo: un "preguntar" que no se compra desde hace 2 meses deja de preguntar. */
+export function reponerDe(it: StockItem, hoy: string): Reponer {
+  const m = it.reponer ?? 'habitual';
+  if (m !== 'preguntar') return m;
+  const last = [...it.compras].sort().pop() ?? it.creado;
+  return last && daysLeft(last, hoy) < -DIAS_OLVIDO ? 'nunca' : 'preguntar';
+}
+
+/** Se ha acabado, queda poco o toca por frecuencia (sin mirar lo apuntado ni el modo). */
+export function necesitaReponer(it: StockItem, s: ItemState | undefined, hasta: string, hoy: string): boolean {
+  if (it.foodId) return false;
+  if (it.pospuesto && it.pospuesto > hoy) return false;
+  if (enEstaCompra({ ...it, apuntado: false }, hasta)) return true;
+  return !!s && s.fuente !== 'desconocido' && s.nivel !== 'ok';
+}
+
+/** ¿Un artículo de casa (no de la dieta) va en la compra que cubre hasta `hasta`? */
 export function otroEnCompra(it: StockItem, s: ItemState | undefined, hasta: string, hoy: string): boolean {
   if (it.foodId) return false;
   if (it.apuntado) return true;
-  if (it.pospuesto && it.pospuesto > hoy) return false;
-  if (enEstaCompra(it, hasta)) return true;
-  return !!s && s.fuente !== 'desconocido' && s.nivel !== 'ok';
+  return reponerDe(it, hoy) === 'habitual' && necesitaReponer(it, s, hasta, hoy);
+}
+
+/** "¿Volver a comprar?": se han acabado pero están en modo preguntar. */
+export function preguntarReponer(it: StockItem, s: ItemState | undefined, hasta: string, hoy: string): boolean {
+  return !it.foodId && !it.apuntado && reponerDe(it, hoy) === 'preguntar' && necesitaReponer(it, s, hasta, hoy);
 }
 
 // ───────── reconocer productos por nombre (de Despensa) ─────────

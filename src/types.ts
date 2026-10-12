@@ -315,6 +315,13 @@ export interface StockItem {
   apuntado?: boolean;
   /** se quitó cuando tocaba: no vuelve a salir hasta esta fecha */
   pospuesto?: string;
+  /**
+   * Al acabarse: habitual = entra solo en la compra; preguntar = sale en "¿Volver a comprar?";
+   * nunca = no se repone solo (se puede apuntar a mano). Sin valor = habitual.
+   */
+  reponer?: 'habitual' | 'preguntar' | 'nunca';
+  /** apuntado con "solo esta vez": comprarlo no lo convierte en habitual */
+  soloEstaVez?: boolean;
   creado: string;
 }
 

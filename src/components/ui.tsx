@@ -4,12 +4,23 @@ import { rangeStatus, round, type RangeStatus } from '../lib/nutrition';
 import { useStore } from '../store/AppStore';
 import { useBackHandler } from '../lib/back';
 
+let openSheets = 0;
+
 export function Sheet({ title, onClose, children, actions }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode }) {
   // botón atrás: cierra esta ventana
   useBackHandler(() => {
     onClose();
     return true;
   });
+  // mientras haya una ventana abierta, la pantalla de detrás no se desplaza
+  useEffect(() => {
+    openSheets++;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      openSheets = Math.max(0, openSheets - 1);
+      if (!openSheets) document.body.style.overflow = '';
+    };
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);

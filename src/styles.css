@@ -650,6 +650,7 @@ textarea:focus {
 .sheet-backdrop {
   position: fixed;
   inset: 0;
+  overscroll-behavior: contain;
   background: rgba(0, 0, 0, 0.4);
   z-index: 50;
   display: flex;
@@ -661,6 +662,7 @@ textarea:focus {
   width: 100%;
   max-width: 640px;
   max-height: 90vh;
+  max-height: 90dvh;
   border-radius: 18px 18px 0 0;
   display: flex;
   flex-direction: column;
@@ -674,6 +676,7 @@ textarea:focus {
   }
 }
 .sheet-head {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -685,11 +688,20 @@ textarea:focus {
   font-size: 1.05rem;
 }
 .sheet-body {
+  /* sin min-height: 0 el contenido no encoge y no se puede desplazar dentro de la ventana */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+/* el contenido nunca se encoge (las listas se cortaban): es la ventana la que se desplaza */
+.sheet-body > * {
+  flex-shrink: 0;
 }
 
 /* Lists */

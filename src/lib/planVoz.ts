@@ -47,6 +47,8 @@ export interface PlanIdea {
   variado: boolean;
   /** cada comida se repite N días seguidos (1 = no se repite): cocinar una vez para dos días */
   repetir: number;
+  /** no repetir el mismo hidrato en la comida y la cena de un mismo día (por defecto, sí) */
+  hidratoDistinto: boolean;
   dudas: string[];
 }
 
@@ -309,6 +311,7 @@ export function parsePlanVoz(text: string, foods: Food[], profiles: Record<Profi
     usarFavoritos: !/\b(sin favoritos|nuevas|nuevos platos|cosas nuevas)\b/.test(t),
     soloHuecos: !/\b(reemplaza|sustituye|cambia todo|desde cero)\b/.test(t),
     repetir: parseRepetir(t),
+    hidratoDistinto: !/\b(mismo hidrato|repetir (el )?hidrato|puede(n)? repetir(se)? (el|los) hidratos?)\b/.test(t),
     variado: variadoGlobal,
     dudas,
   };
@@ -326,6 +329,21 @@ export function parseRepetir(t: string): number {
   if (n && repite) return W[n[1]] ?? 1;
   if (/\b(lunes y martes|martes y miercoles|miercoles y jueves|jueves y viernes) (las |los |lo )?mism/.test(t)) return 2;
   return 1;
+}
+
+/** "Familia" de un hidrato: papa fresca y de bote son papas; pasta y pasta de legumbres, pasta… */
+export function hcFamily(id: string): string {
+  if (id.startsWith('papa')) return 'papa';
+  if (id.startsWith('pasta')) return 'pasta';
+  if (id.startsWith('gnocchi')) return 'gnocchi';
+  if (id.startsWith('pan_')) return 'pan';
+  return id;
+}
+
+/** Familias de hidrato de una comida */
+export function hcFamilies(meal: Pick<Meal, 'items'> | undefined, fm: FoodMap): string[] {
+  if (!meal) return [];
+  return [...new Set(meal.items.filter((i) => fm[i.foodId]?.categoria === 'hidrato').map((i) => hcFamily(i.foodId)))];
 }
 
 // ───────── del plan a comidas ─────────
@@ -407,6 +425,29 @@ export function* planSlots(idea: PlanIdea, ctx: PlanCtx): Generator<PlanSlot> {
   const usedFav = new Set<string>();
   const usedSig: string[] = [];
   const counters = new Map<string, number>();
+  // hidratos ya usados en la comida/cena de cada día (y persona)
+  const hcDia = new Map<string, Set<string>>();
+  const noteHc = (fecha: string, para: ProfileId | undefined, meal?: Meal) => {
+    const k = `${fecha}|${para ?? ''}`;
+    hcDia.set(k, new Set([...(hcDia.get(k) ?? []), ...hcFamilies(meal, fm)]));
+  };
+  const evitarPara = (fecha: string, b: Block, para?: ProfileId) => {
+    if (!idea.hidratoDistinto || b === 'A') return undefined;
+    const keys = para ? [`${fecha}|`, `${fecha}|${para}`] : [`${fecha}|`, ...PROFILE_IDS.map((p) => `${fecha}|${p}`)];
+    return new Set(keys.flatMap((k) => [...(hcDia.get(k) ?? [])]));
+  };
+  // lo ya planificado en esos días también cuenta
+  for (const fecha of idea.fechas) {
+    const day = ctx.history.find((h) => h.fecha === fecha);
+    for (const bb of ['B', 'C'] as Block[]) {
+      if (idea.bloques.includes(bb) && !idea.soloHuecos) continue;
+      if (day?.bloques[bb] && !isFree(day.bloques[bb]!)) noteHc(fecha, undefined, (day.bloques[bb] as { meal: Meal }).meal);
+      for (const p of PROFILE_IDS) {
+        const s = personSlot(day, bb, p);
+        if (isSplit(day, bb) && s && !isFree(s)) noteHc(fecha, p, s.meal);
+      }
+    }
+  }
   for (const b of idea.bloques) {
     const rulesB = idea.reglas.filter((r) => r.bloques.includes(b));
     const split = rulesB.some((r) => r.para) || ctx.bloquesSeparados.includes(b);
@@ -427,13 +468,16 @@ export function* planSlots(idea: PlanIdea, ctx: PlanCtx): Generator<PlanSlot> {
         // la misma comida que el primer día del grupo (cocinar una vez para varios días)
         const first = rep > 1 ? grupos.get(gk) : undefined;
         if (first?.meal) {
-          yield { ...first, key, fecha, meal: { ...structuredClone(first.meal), id: `${first.meal.id}_r${i}` }, grupo: gk, igualQue: first.fecha };
+          const copy = { ...first, key, fecha, meal: { ...structuredClone(first.meal), id: `${first.meal.id}_r${i}` }, grupo: gk, igualQue: first.fecha };
+          if (b !== 'A') noteHc(fecha, para, copy.meal);
+          yield copy;
           continue;
         }
         const ck = `${b}|${para ?? ''}`;
         const k = counters.get(ck) ?? 0;
         counters.set(ck, k + 1);
-        const slot = buildSlot(idea, ctx, { fecha, bloque: b, para, k, usedFav, usedSig });
+        const slot = buildSlot(idea, ctx, { fecha, bloque: b, para, k, usedFav, usedSig, evitarHc: evitarPara(fecha, b, para) });
+        if (b !== 'A') noteHc(fecha, para, slot.meal);
         const withG = rep > 1 ? { ...slot, grupo: gk } : slot;
         if (rep > 1) grupos.set(gk, withG);
         yield withG;
@@ -449,21 +493,31 @@ export function* planSlots(idea: PlanIdea, ctx: PlanCtx): Generator<PlanSlot> {
 export function buildSlot(
   idea: PlanIdea,
   ctx: PlanCtx,
-  o: { fecha: string; bloque: Block; para?: ProfileId; k: number; usedFav: Set<string>; usedSig: string[] },
+  o: { fecha: string; bloque: Block; para?: ProfileId; k: number; usedFav: Set<string>; usedSig: string[]; evitarHc?: Set<string> },
 ): PlanSlot {
   const fm: FoodMap = Object.fromEntries(ctx.gctx.foods.map((f) => [f.id, f]));
   const { fecha, bloque: b, para, k, usedFav, usedSig } = o;
   const key = `${fecha}|${b}|${para ?? ''}`;
   const excluded = [...new Set(idea.excluir.flatMap((i) => i.foods))];
   const items = idea.reglas.filter((r) => r.bloques.includes(b) && (!r.para || r.para === para)).flatMap((r) => r.items);
-  const req = requiredFor(items, k, b, fm, b === 'C' ? 1 : 0);
+  // hidratos que no tocan hoy (ya están en la otra comida del día)
+  const evitar = o.evitarHc ?? new Set<string>();
+  const choca = (r: ReturnType<typeof requiredFor>) => r.foods.some((f) => fm[f]?.categoria === 'hidrato' && evitar.has(hcFamily(f)));
+  let req = requiredFor(items, k, b, fm, b === 'C' ? 1 : 0);
+  for (let j = 1; j < 6 && choca(req); j++) req = requiredFor(items, k, b, fm, (b === 'C' ? 1 : 0) + j);
+  if (choca(req)) {
+    // si todo lo pedido choca, se quita ese hidrato de lo pedido
+    const keep = req.foods.map((f) => !(fm[f]?.categoria === 'hidrato' && evitar.has(hcFamily(f))));
+    req = { foods: req.foods.filter((_, i) => keep[i]), groups: req.groups.filter((_, i) => keep[i]), labels: req.labels.filter((_, i) => keep[i]) };
+  }
+  const evitarIds = ctx.gctx.foods.filter((f) => f.categoria === 'hidrato' && evitar.has(hcFamily(f.id))).map((f) => f.id);
   let meal: Meal | undefined;
   let favId: string | undefined;
   let origen: PlanSlot['origen'] = 'sin_opcion';
   if (idea.usarFavoritos) {
     const fav = ctx.favorites
       .filter((f) => f.bloque === b && (para ? !f.para || f.para === para : !f.para))
-      .filter((f) => !f.items.some((i) => excluded.includes(i.foodId)))
+      .filter((f) => !f.items.some((i) => excluded.includes(i.foodId) || evitarIds.includes(i.foodId)))
       .filter((f) => req.groups.every((g) => f.items.some((i) => g.includes(i.foodId))))
       .filter((f) => !usedFav.has(f.id))
       .sort((x, y) => (y.usos ?? 0) - (x.usos ?? 0))[0];
@@ -483,7 +537,7 @@ export function buildSlot(
             bloque: b,
             obligatorios: req.foods.slice(0, n),
             opcionales: [],
-            prohibidos: excluded,
+            prohibidos: [...excluded, ...evitarIds],
             disponibles: ctx.enCasa ?? [],
             estilo: 'equilibrada',
             filtros: { sinLacteos: false, soloSeleccionados: false, usarLoQueTengo: false },

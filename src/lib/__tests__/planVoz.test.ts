@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSeedData } from '../../store/seed';
 import { toFoodMap } from '../nutrition';
-import { parsePlanVoz, planSlots, requiredFor, type PlanIdea } from '../planVoz';
+import { hcFamily, parsePlanVoz, planSlots, requiredFor, type PlanIdea } from '../planVoz';
+import type { Block } from '../../types';
 
 const seed = createSeedData();
 const fm = toFoodMap(seed.foods);
@@ -109,5 +110,29 @@ describe('repetir comidas y un solo hidrato', () => {
       expect(cats.filter((c) => c === 'hidrato').length).toBeLessThanOrEqual(1);
       expect(cats.filter((c) => c === 'proteina').length).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe('hidrato distinto en comida y cena del mismo día', () => {
+  const gctx = { foods: seed.foods, conversions: seed.conversions, profiles: seed.profiles, settings: seed.settings, ratings: {} };
+  const fam = (ids: string[]) => ids.filter((i) => fm[i]?.categoria === 'hidrato').map(hcFamily);
+
+  it('por defecto, comida y cena de cada día con hidratos distintos (también con favoritos y repeticiones)', () => {
+    for (const repetir of [1, 2]) {
+      const idea = { ...P('plan para la semana que viene con papas, arroz y pasta, pollo y carne'), bloques: ['B', 'C'] as Block[], repetir };
+      expect(idea.hidratoDistinto).toBe(true);
+      const slots = [...planSlots(idea, { gctx, favorites: seed.favorites, history: [], bloquesSeparados: [] })];
+      for (const f of idea.fechas) {
+        const b = slots.find((s) => s.fecha === f && s.bloque === 'B')!.meal!;
+        const c = slots.find((s) => s.fecha === f && s.bloque === 'C')!.meal!;
+        const hb = fam(b.items.map((i) => i.foodId));
+        const hc = fam(c.items.map((i) => i.foodId));
+        expect(hb.filter((x) => hc.includes(x))).toEqual([]);
+      }
+    }
+  });
+
+  it('se puede desactivar', () => {
+    expect(P('plan con papas, se puede repetir el hidrato').hidratoDistinto).toBe(false);
   });
 });

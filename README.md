@@ -323,3 +323,6 @@ Código: `src/lib/asistente.ts` (intérprete de órdenes), `src/components/Asist
 ### v1.8.2
 - Plan por voz: nunca dos hidratos ni dos proteínas principales pedidos en la misma comida (lo que va "siempre / casi siempre / algunos días" tiene prioridad sobre los turnos).
 - **Repetir comidas para cocinar menos**: "que se repitan las comidas dos días seguidos", "lunes y martes las mismas comidas", "cocinar para dos días" — o la opción *🔁 Repetir cada comida: 2 / 3 días seguidos*. En la propuesta se marca "↻ igual que el lunes" y 🔄 cambia todo el grupo.
+
+### v1.8.3
+- **Hidrato distinto en la comida y la cena del mismo día** (por defecto, desmarcable): en el plan por voz ("No repetir el hidrato entre la comida y la cena del mismo día") y en el generador ("No repetir el hidrato de la comida/cena", cuando el otro bloque del día ya tiene comida). Papa fresca y de bote cuentan como papas; los tipos de pasta, como pasta. La proteína sí se puede repetir; entre días, también el hidrato.

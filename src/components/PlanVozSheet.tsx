@@ -5,7 +5,7 @@ import { useStore } from '../store/AppStore';
 import { todayKey } from '../lib/day';
 import { addDays, formatDay, weekStart } from '../lib/planning';
 import { listen, speechAvailable } from '../lib/speech';
-import { BLOCK_LABEL, buildSlot, FREQ_LABEL, parsePlanVoz, planSlots, type Freq, type PlanIdea, type PlanSlot } from '../lib/planVoz';
+import { BLOCK_LABEL, buildSlot, FREQ_LABEL, hcFamilies, parsePlanVoz, planSlots, type Freq, type PlanIdea, type PlanSlot } from '../lib/planVoz';
 import { useEnCasa } from '../lib/useStock';
 import { signature } from '../lib/mealGenerator';
 import { personSlot } from '../lib/day';
@@ -37,7 +37,7 @@ export function PlanVozSheet({
   /** tras añadir: las fechas que se han rellenado */
   onAdded?: (fechas: string[]) => void;
 }) {
-  const { data, genCtx, activeFoods, placeMeal, getDay, setDaySlot, setPersonSlot } = useStore();
+  const { data, fm, genCtx, activeFoods, placeMeal, getDay, setDaySlot, setPersonSlot } = useStore();
   const enCasa = useEnCasa();
   const hoy = todayKey();
   const [step, setStep] = useState<Step>(inicial ? 'idea' : 'decir');
@@ -106,7 +106,10 @@ export function PlanVozSheet({
     if (!idea) return;
     const usedFav = new Set(slots.map((x) => x.favId).filter(Boolean) as string[]);
     const usedSig = slots.filter((x) => x.meal).map((x) => signature(x.meal!.items.map((i) => i.foodId)));
-    const n = buildSlot(idea, ctx, { fecha: s.fecha, bloque: s.bloque, para: s.para, k: attempt, usedFav, usedSig });
+    // el hidrato de la otra comida principal de ese día no se repite
+    const otra = s.bloque === 'A' || !idea.hidratoDistinto ? [] : slots.filter((x) => x.fecha === s.fecha && x.bloque !== 'A' && x.bloque !== s.bloque && (!x.para || !s.para || x.para === s.para));
+    const evitarHc = new Set(otra.flatMap((x) => hcFamilies(x.meal, fm)));
+    const n = buildSlot(idea, ctx, { fecha: s.fecha, bloque: s.bloque, para: s.para, k: attempt, usedFav, usedSig, evitarHc });
     // si es una comida repetida, cambia en todos los días de su grupo
     const same = (x: PlanSlot) => (s.grupo ? x.grupo === s.grupo : x.key === s.key);
     setSlots(
@@ -283,6 +286,10 @@ export function PlanVozSheet({
             Cada comida se repite {idea.repetir} días seguidos (p. ej., lunes y martes lo mismo, miércoles y jueves lo mismo…).
           </div>
         )}
+        <label className="check small">
+          <input type="checkbox" checked={idea.hidratoDistinto} onChange={(e) => set({ hidratoDistinto: e.target.checked })} />
+          No repetir el hidrato entre la comida y la cena del mismo día
+        </label>
         <label className="check small">
           <input type="checkbox" checked={idea.usarFavoritos} onChange={(e) => set({ usarFavoritos: e.target.checked })} />
           Usar mis favoritos cuando encajen (si no, comidas nuevas del generador)

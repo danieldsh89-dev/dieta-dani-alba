@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { hcFamilies, hcFamily } from '../lib/planVoz';
+import { dayMeals } from '../lib/day';
 import { PlanVozSheet } from '../components/PlanVozSheet';
 import { caducanPronto, computeStock } from '../lib/stock';
 import type { Block, Meal, ProfileId } from '../types';
@@ -38,7 +40,7 @@ export function GeneratorScreen({
   onToast: Toaster;
   onUsed: () => void;
 }) {
-  const { data, genCtx, fm, cm, placeMeal, setPantry, getDay } = useStore();
+  const { data, genCtx, fm, cm, placeMeal, setPantry, getDay, activeFoods } = useStore();
   const [modo, setModo] = useState<'generador' | 'casa'>(preset?.modo ?? 'generador');
   const [bloque, setBloque] = useState<Block>(preset?.bloque ?? 'B');
   const [obligatorios, setObligatorios] = useState<string[]>([]);
@@ -78,13 +80,25 @@ export function GeneratorScreen({
   }, [data, fm, cm]);
   const disponibles = useMemo(() => [...new Set([...data.pantry, ...despensa.hay])], [data.pantry, despensa]);
 
+  // el hidrato de la otra comida principal de ese día no se repite (por defecto)
+  const [hcDistinto, setHcDistinto] = useState(true);
+  const otraHc = useMemo(() => {
+    if (bloque === 'A') return { ids: [] as string[], nombres: [] as string[] };
+    const otro: Block = bloque === 'B' ? 'C' : 'B';
+    const meals = dayMeals(today).filter((m) => m.bloque === otro && (para === 'ambos' || !m.para || m.para === para));
+    const fams = new Set(meals.flatMap((m) => hcFamilies(m.meal, fm)));
+    const ids = activeFoods.filter((f) => f.categoria === 'hidrato' && fams.has(hcFamily(f.id))).map((f) => f.id);
+    const nombres = [...new Set(meals.flatMap((m) => m.meal.items.filter((i) => fm[i.foodId]?.categoria === 'hidrato').map((i) => fm[i.foodId].nombre.split(' (')[0].toLowerCase())))];
+    return { ids, nombres };
+  }, [bloque, today, para, fm, activeFoods]);
+
   const buildReq = (extraExcl: string[] = []): GeneratorRequest => {
     const casa = modo === 'casa';
     return {
       bloque,
       obligatorios: casa ? [] : obligatorios,
       opcionales: casa ? [] : opcionales,
-      prohibidos,
+      prohibidos: hcDistinto ? [...new Set([...prohibidos, ...otraHc.ids.filter((id) => !obligatorios.includes(id))])] : prohibidos,
       disponibles,
       caducan: despensa.caducan,
       estilo,
@@ -256,6 +270,12 @@ export function GeneratorScreen({
                 casa ({disponibles.length})
               </label>
             </>
+          )}
+          {otraHc.ids.length > 0 && (
+            <label className="check">
+              <input type="checkbox" checked={hcDistinto} onChange={(e) => setHcDistinto(e.target.checked)} /> No repetir el hidrato de la{' '}
+              {bloque === 'B' ? 'cena' : 'comida'} ({otraHc.nombres.join(', ')})
+            </label>
           )}
         </div>
         {!casa && recientes.length > 0 && (

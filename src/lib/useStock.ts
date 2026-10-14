@@ -30,7 +30,12 @@ export function useEnCasa(): Set<string> {
 export function useShortages(): Shortage[] {
   const { data, fm, cm } = useStore();
   const st = useStockStates();
-  return useMemo(() => (data.stock.config.desde ? planShortages(data, fm, cm, st) : []), [data, fm, cm, st]);
+  return useMemo(() => {
+    if (!data.stock.config.desde) return [];
+    const ign = data.stock.config.ignorarFaltas ?? {};
+    // "lo tengo cocinado": no se avisa de ese alimento hasta la fecha indicada
+    return planShortages(data, fm, cm, st).filter((s) => !(ign[s.foodId] && s.fecha <= ign[s.foodId]));
+  }, [data, fm, cm, st]);
 }
 
 /** Coste de todas las comidas de un día (precios de Mercadona) */

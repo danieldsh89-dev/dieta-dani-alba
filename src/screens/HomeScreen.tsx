@@ -25,6 +25,7 @@ import { ExtraSheet } from '../components/ExtraSheet';
 import { MacroBar, NumberInput, Progress, Sheet } from '../components/ui';
 import { FavThumb, SortSelect, useFavSorting } from './FavoritesScreen';
 import { VariantSheet } from '../components/VariantSheet';
+import { ShortageSheet } from '../components/ShortageSheet';
 import { useDayCost, useShortages } from '../lib/useStock';
 import { eur } from '../lib/mealInfo';
 import { filterFavorites } from '../lib/favorites';
@@ -68,6 +69,7 @@ export function HomeScreen({
   const [menuFor, setMenuFor] = useState<Target | null>(null);
   const [extra, setExtra] = useState(false);
   const [variantFor, setVariantFor] = useState<(Target & { index?: number }) | null>(null);
+  const [warnB, setWarnB] = useState<Block | null>(null);
   const cost = useDayCost(day);
   const shortages = useShortages();
   // lo que falta para las comidas de hoy, con la comida y el ingrediente para cambiarlo
@@ -275,23 +277,6 @@ export function HomeScreen({
         )}
       </div>
 
-      {faltasHoy.length > 0 && (
-        <div className="card tight">
-          <b className="small">⚠️ Para hoy no llega lo que hay en casa</b>
-          {faltasHoy.map(({ s, t, index }) => (
-            <div key={`${s.foodId}${t.b}${t.pid ?? ''}`} className="row between small" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-              <span className="grow">
-                {fm[s.foodId]?.nombre.split(' (')[0]} · {t.b}
-                {t.pid ? ` (${data.profiles[t.pid].nombre})` : ''}
-                <span className="tiny muted"> · faltan ≈{Math.round(s.falta)} {fm[s.foodId]?.unidadBase === 'unidad' ? 'ud' : fm[s.foodId]?.unidadBase}</span>
-              </span>
-              <button className="btn small" onClick={() => setVariantFor({ ...t, index })}>
-                🔁 Cambiar
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
       {(ayerParaHoy.length > 0 || hoyParaManana.length > 0) && (
         <div className="btn-row">
           {ayerParaHoy.length > 0 && (
@@ -331,7 +316,14 @@ export function HomeScreen({
             <div className="block-letter">{b}</div>
             <div className="col" style={{ minWidth: 0 }}>
               <div className="row between">
-                <span className="sub">{BLOCK_NAMES[b]}</span>
+                <span className="sub">
+                  {BLOCK_NAMES[b]}{' '}
+                  {faltasHoy.some((x) => x.t.b === b) && (
+                    <span role="button" title="Puede faltar algo en casa" style={{ cursor: 'pointer' }} onClick={() => setWarnB(b)}>
+                      ⚠️
+                    </span>
+                  )}
+                </span>
                 <span className="tiny muted">
                   <span className="dani">{targets.dani.kcal}</span> / <span className="alba">{targets.alba.kcal}</span> kcal
                 </span>
@@ -502,6 +494,17 @@ export function HomeScreen({
           return <CookMode meal={s.meal} onClose={() => setCookFor(null)} />;
         })()}
       {extra && <ExtraSheet fecha={fecha} onClose={() => setExtra(false)} onToast={onToast} />}
+      {warnB && (
+        <ShortageSheet
+          items={faltasHoy.filter((x) => x.t.b === warnB).map((x) => x.s)}
+          onClose={() => setWarnB(null)}
+          onToast={onToast}
+          onCambiar={(foodId) => {
+            const x = faltasHoy.find((y) => y.t.b === warnB && y.s.foodId === foodId);
+            if (x) setVariantFor({ ...x.t, index: x.index });
+          }}
+        />
+      )}
       {variantFor &&
         (() => {
           const s = slotOf(variantFor);

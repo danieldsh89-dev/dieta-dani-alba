@@ -26,6 +26,7 @@ import { shareText } from './SyncScreen';
 import { MercaBasketView } from './MercaBasket';
 import { VariantSheet } from '../components/VariantSheet';
 import { PlanVozSheet } from '../components/PlanVozSheet';
+import { ShortageSheet } from '../components/ShortageSheet';
 import { dayCost, useShortages } from '../lib/useStock';
 import { eur, sectionFor, SECTIONS } from '../lib/mealInfo';
 import { ev, foodItem } from '../lib/stock';
@@ -180,6 +181,30 @@ function WeekView({
     onToast(n ? `Copiados ${n} días de la semana anterior` : 'No hay días que copiar (o ya están planificados)');
   };
 
+  const [warnFor, setWarnFor] = useState<{ fecha: string; b: Block; pid?: ProfileId } | null>(null);
+  /** faltas de una comida concreta (las que lleva entre sus ingredientes) */
+  const faltasDe = (fecha: string, b: Block, pid?: ProfileId) =>
+    fecha < today
+      ? []
+      : shortages.filter((sh) => {
+          if (sh.fecha !== fecha || sh.bloque !== b) return false;
+          const f = findMeal(fecha, b, sh.foodId);
+          return !!f && (pid === undefined || f.pid === pid || f.pid === undefined);
+        });
+  const WarnIcon = ({ fecha, b, pid }: { fecha: string; b: Block; pid?: ProfileId }) =>
+    faltasDe(fecha, b, pid).length ? (
+      <span
+        role="button"
+        title="Puede faltar algo en casa"
+        style={{ padding: '0 4px', fontSize: '0.95rem' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setWarnFor({ fecha, b, pid });
+        }}
+      >
+        ⚠️
+      </span>
+    ) : null;
   const label = (s: DaySlot | undefined) =>
     !s ? 'Añadir…' : isFree(s) ? `🍕 Comida libre${s.descripcion ? `: ${s.descripcion}` : ''}` : s.meal.nombre;
 
@@ -255,25 +280,6 @@ function WeekView({
                 )}
               </div>
             </div>
-            {shortages
-              .filter((s) => s.fecha === fecha && s.bloque && fecha >= today)
-              .map((s) => {
-                const found = findMeal(fecha, s.bloque!, s.foodId);
-                const f = fm[s.foodId];
-                return (
-                  <div key={`${s.foodId}${s.bloque}`} className="row between tiny" style={{ color: 'var(--warn)', gap: 6 }}>
-                    <span className="grow">
-                      ⚠️ {s.bloque}: no hay {f?.nombre.split(' (')[0].toLowerCase() ?? s.foodId} suficiente
-                      {s.falta > 0 ? ` (faltan ≈${Math.round(s.falta)} ${f?.unidadBase === 'unidad' ? 'ud' : f?.unidadBase ?? ''})` : ''}
-                    </span>
-                    {found && (
-                      <button className="btn small" onClick={() => setVariantFor({ fecha, b: s.bloque!, pid: found.pid, index: found.index })}>
-                        🔁 Cambiar
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
             {BLOCKS.map((b) => {
               const split = isSplit(day, b) || (!blockHasContent(day, b) && separados.includes(b));
               if (!split) {
@@ -289,6 +295,7 @@ function WeekView({
                     <span className={`grow small ${s ? '' : 'muted'}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {label(s)}
                     </span>
+                    <WarnIcon fecha={fecha} b={b} />
                   </button>
                 );
               }
@@ -311,6 +318,7 @@ function WeekView({
                           <span className={`grow small ${s ? '' : 'muted'}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {label(s)}
                           </span>
+                          <WarnIcon fecha={fecha} b={b} pid={pid} />
                         </button>
                       );
                     })}
@@ -330,6 +338,17 @@ function WeekView({
             setSlot(null);
           }}
           onToast={onToast}
+        />
+      )}
+      {warnFor && (
+        <ShortageSheet
+          items={faltasDe(warnFor.fecha, warnFor.b, warnFor.pid)}
+          onClose={() => setWarnFor(null)}
+          onToast={onToast}
+          onCambiar={(foodId) => {
+            const f = findMeal(warnFor.fecha, warnFor.b, foodId);
+            if (f) setVariantFor({ fecha: warnFor.fecha, b: warnFor.b, pid: f.pid, index: f.index });
+          }}
         />
       )}
       {variantFor &&

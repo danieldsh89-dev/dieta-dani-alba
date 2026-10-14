@@ -368,6 +368,8 @@ export interface StockConfig {
   ultimaRevision?: string;
   /** última comprobación de pedidos (ISO) */
   pedidosVisto?: string;
+  /** faltas que no hay que avisar (alimento → hasta qué fecha): "lo tengo cocinado" */
+  ignorarFaltas?: Record<string, string>;
   /** última carga del carrito desde la app (para "ya ha llegado" a mano) */
   ultimaCarga?: { fecha: string; lineas: { productId: string; quantity: number }[] };
 }

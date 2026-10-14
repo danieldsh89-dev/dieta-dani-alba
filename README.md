@@ -316,3 +316,6 @@ Código: `src/lib/planVoz.ts` (intérprete + generador del plan), `src/component
 - **🎤 Asistente** (arriba en todas las pantallas, y el acceso directo del icono): una frase y la app lo hace. Planes y comidas por voz; "hoy he comido el B1", "pon pollo con papas en la cena de mañana"; "cambia las papas por arroz en la comida"; "cenamos fuera, unas 900 calorías"; "me he tomado un plátano de extra"; "peso 78,5"; "hemos comido lo planificado"; "repite lo de ayer", "copia hoy a mañana"; "quita la cena de mañana"; "abre la despensa / la compra / el carrito…"; "busca albóndigas"; "temporizador de 10 minutos"; y todo lo de la despensa. Lo que cambia el plan se enseña antes y tiene ↺ Deshacer.
 
 Código: `src/lib/asistente.ts` (intérprete de órdenes), `src/components/AsistenteSheet.tsx`, `src/components/GlobalTimer.tsx`.
+
+### v1.8.1
+- El aviso de "falta en casa" ya no sustituye el nombre de la comida: solo un ⚠️ junto a ella (Plan y Hoy); al tocarlo, el detalle con **✓ Lo tengo (p. ej. cocinado)** —deja de avisar de ese alimento una semana— o **🔁 Cambiar por otro**.

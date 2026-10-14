@@ -45,6 +45,8 @@ export interface PlanIdea {
   soloHuecos: boolean;
   /** "variado" dicho en general */
   variado: boolean;
+  /** cada comida se repite N días seguidos (1 = no se repite): cocinar una vez para dos días */
+  repetir: number;
   dudas: string[];
 }
 
@@ -306,9 +308,24 @@ export function parsePlanVoz(text: string, foods: Food[], profiles: Record<Profi
     excluir,
     usarFavoritos: !/\b(sin favoritos|nuevas|nuevos platos|cosas nuevas)\b/.test(t),
     soloHuecos: !/\b(reemplaza|sustituye|cambia todo|desde cero)\b/.test(t),
+    repetir: parseRepetir(t),
     variado: variadoGlobal,
     dudas,
   };
+}
+
+/**
+ * "lunes y martes las mismas comidas", "repite cada comida dos días", "cocinar para dos días",
+ * "de dos en dos", "que se repitan las comidas dos días seguidos" → 2 (o 3).
+ */
+export function parseRepetir(t: string): number {
+  const W: Record<string, number> = { dos: 2, '2': 2, tres: 3, '3': 3, cuatro: 4, '4': 4 };
+  const n = t.match(/\b(dos|tres|cuatro|2|3|4) (?:dias?|en dos|en tres)\b/) ?? t.match(/\bde (dos|tres) en (?:dos|tres)\b/);
+  // solo si se habla de repetir / las mismas / cocinar (no "los próximos dos días")
+  const repite = /\b(repit\w*|repeti\w*|mism[ao]s?|igual(?:es)?|cocin\w*|seguidos)\b|\bde (dos|tres) en\b/.test(t);
+  if (n && repite) return W[n[1]] ?? 1;
+  if (/\b(lunes y martes|martes y miercoles|miercoles y jueves|jueves y viernes) (las |los |lo )?mism/.test(t)) return 2;
+  return 1;
 }
 
 // ───────── del plan a comidas ─────────
@@ -321,6 +338,9 @@ export interface PlanSlot {
   meal?: Meal;
   /** favorito usado (para no repetirlo al regenerar) */
   favId?: string;
+  /** comidas repetidas: mismo grupo = misma comida; `igualQue` = el día en que se cocinó */
+  grupo?: string;
+  igualQue?: string;
   origen: 'favorito' | 'generado' | 'existente' | 'sin_opcion';
   /** lo que se pidió para este hueco */
   pedido: string[];
@@ -341,23 +361,34 @@ export function requiredFor(items: PlanItem[], k: number, bloque: Block, fm: Foo
   const ok = (id: string) => fm[id] && fm[id].bloques.includes(bloque);
   const cat = (it: PlanItem) => fm[it.foods[0]]?.categoria ?? 'extra';
   const out = { foods: [] as string[], groups: [] as string[][], labels: [] as string[] };
+  // un solo hidrato y una sola proteína por comida (nada de papas con pasta)
+  const UNICA = new Set(['hidrato', 'proteina']);
+  const usadas = new Set<string>();
   const add = (it: PlanItem, j: number) => {
     const g = it.foods.filter(ok);
     if (!g.length) return;
+    const c = cat(it);
+    if (UNICA.has(c) && usadas.has(c)) return;
+    usadas.add(c);
     out.foods.push(g[(k + j) % g.length]);
     out.groups.push(g);
     out.labels.push(it.label);
   };
+  // primero lo que va siempre / casi siempre / algunos días (tiene prioridad sobre los turnos)
+  items.forEach((it) => {
+    if (it.freq === 'todos') add(it, k);
+  });
+  items.forEach((it, idx) => {
+    if (it.freq === 'principal' && (k + idx) % 4 !== 3) add(it, k);
+  });
+  items.forEach((it, idx) => {
+    if (it.freq === 'algunos' && (k + idx) % 2 === 0) add(it, k);
+  });
   // los "normales" de un mismo tipo se turnan (pollo un día, carne otro…)
   const normales = items.filter((i) => i.freq === 'normal');
   const porCat = new Map<string, PlanItem[]>();
   for (const it of normales) porCat.set(cat(it), [...(porCat.get(cat(it)) ?? []), it]);
   for (const [, list] of porCat) add(list[(k + offset) % list.length], Math.floor((k + offset) / list.length));
-  items.forEach((it, idx) => {
-    if (it.freq === 'todos') add(it, k);
-    else if (it.freq === 'principal' && (k + idx) % 4 !== 3) add(it, k);
-    else if (it.freq === 'algunos' && (k + idx) % 2 === 0) add(it, k);
-  });
   return out;
 }
 
@@ -380,21 +411,32 @@ export function* planSlots(idea: PlanIdea, ctx: PlanCtx): Generator<PlanSlot> {
     const rulesB = idea.reglas.filter((r) => r.bloques.includes(b));
     const split = rulesB.some((r) => r.para) || ctx.bloquesSeparados.includes(b);
     const who: (ProfileId | undefined)[] = split ? [...PROFILE_IDS] : [undefined];
-    for (const fecha of idea.fechas) {
+    const rep = Math.max(1, idea.repetir ?? 1);
+    const grupos = new Map<string, PlanSlot>();
+    for (const [i, fecha] of idea.fechas.entries()) {
       const day = ctx.history.find((h) => h.fecha === fecha);
       for (const para of who) {
         const key = `${fecha}|${b}|${para ?? ''}`;
+        const gk = `${b}|${para ?? ''}|${Math.floor(i / rep)}`;
         if (idea.soloHuecos && slotExists(day, b, para)) {
           const s = para ? personSlot(day, b, para) : day?.bloques[b];
           const meal = s && !isFree(s) ? s.meal : undefined;
           yield { key, fecha, bloque: b, para, meal, origen: 'existente', pedido: [], ...totals(meal, fm, para) };
           continue;
         }
+        // la misma comida que el primer día del grupo (cocinar una vez para varios días)
+        const first = rep > 1 ? grupos.get(gk) : undefined;
+        if (first?.meal) {
+          yield { ...first, key, fecha, meal: { ...structuredClone(first.meal), id: `${first.meal.id}_r${i}` }, grupo: gk, igualQue: first.fecha };
+          continue;
+        }
         const ck = `${b}|${para ?? ''}`;
         const k = counters.get(ck) ?? 0;
         counters.set(ck, k + 1);
         const slot = buildSlot(idea, ctx, { fecha, bloque: b, para, k, usedFav, usedSig });
-        yield slot;
+        const withG = rep > 1 ? { ...slot, grupo: gk } : slot;
+        if (rep > 1) grupos.set(gk, withG);
+        yield withG;
       }
     }
   }

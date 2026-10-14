@@ -107,8 +107,14 @@ export function PlanVozSheet({
     const usedFav = new Set(slots.map((x) => x.favId).filter(Boolean) as string[]);
     const usedSig = slots.filter((x) => x.meal).map((x) => signature(x.meal!.items.map((i) => i.foodId)));
     const n = buildSlot(idea, ctx, { fecha: s.fecha, bloque: s.bloque, para: s.para, k: attempt, usedFav, usedSig });
-    setSlots(slots.map((x) => (x.key === s.key ? n : x)));
-    if (n.meal) setSel(new Set([...sel, s.key]));
+    // si es una comida repetida, cambia en todos los días de su grupo
+    const same = (x: PlanSlot) => (s.grupo ? x.grupo === s.grupo : x.key === s.key);
+    setSlots(
+      slots.map((x, i) =>
+        same(x) ? { ...n, key: x.key, fecha: x.fecha, grupo: x.grupo, igualQue: x.igualQue, meal: n.meal ? { ...structuredClone(n.meal), id: `${n.meal.id}_g${i}` } : undefined } : x,
+      ),
+    );
+    if (n.meal) setSel(new Set([...sel, ...slots.filter(same).map((x) => x.key)]));
   };
 
   const aceptar = () => {
@@ -264,6 +270,19 @@ export function PlanVozSheet({
           </div>
         )}
         <div className="tiny muted">Toca un alimento para cambiar cada cuánto sale (normal → algunos días → casi siempre → todos los días).</div>
+        <b className="small">🔁 Repetir cada comida (cocinar menos)</b>
+        <div className="chips">
+          {[1, 2, 3].map((n) => (
+            <button key={n} className={`chip ${(idea.repetir ?? 1) === n ? 'on' : ''}`} onClick={() => set({ repetir: n })}>
+              {n === 1 ? 'No, cada día distinto' : `${n} días seguidos`}
+            </button>
+          ))}
+        </div>
+        {(idea.repetir ?? 1) > 1 && (
+          <div className="tiny muted">
+            Cada comida se repite {idea.repetir} días seguidos (p. ej., lunes y martes lo mismo, miércoles y jueves lo mismo…).
+          </div>
+        )}
         <label className="check small">
           <input type="checkbox" checked={idea.usarFavoritos} onChange={(e) => set({ usarFavoritos: e.target.checked })} />
           Usar mis favoritos cuando encajen (si no, comidas nuevas del generador)
@@ -322,6 +341,7 @@ export function PlanVozSheet({
                     {s.meal ? s.meal.nombre : 'sin opción con eso'}
                     {s.origen === 'favorito' && <span className="badge info"> ★</span>}
                     {s.origen === 'existente' && <span className="badge"> ya planificado</span>}
+                    {s.igualQue && <span className="badge info"> ↻ igual que el {formatDay(s.igualQue, { weekday: 'short', day: 'numeric' })}</span>}
                   </span>
                   {s.meal && (
                     <span className="tiny muted">

@@ -319,3 +319,7 @@ Código: `src/lib/asistente.ts` (intérprete de órdenes), `src/components/Asist
 
 ### v1.8.1
 - El aviso de "falta en casa" ya no sustituye el nombre de la comida: solo un ⚠️ junto a ella (Plan y Hoy); al tocarlo, el detalle con **✓ Lo tengo (p. ej. cocinado)** —deja de avisar de ese alimento una semana— o **🔁 Cambiar por otro**.
+
+### v1.8.2
+- Plan por voz: nunca dos hidratos ni dos proteínas principales pedidos en la misma comida (lo que va "siempre / casi siempre / algunos días" tiene prioridad sobre los turnos).
+- **Repetir comidas para cocinar menos**: "que se repitan las comidas dos días seguidos", "lunes y martes las mismas comidas", "cocinar para dos días" — o la opción *🔁 Repetir cada comida: 2 / 3 días seguidos*. En la propuesta se marca "↻ igual que el lunes" y 🔄 cambia todo el grupo.

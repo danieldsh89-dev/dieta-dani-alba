@@ -79,3 +79,35 @@ describe('del plan a comidas', () => {
     expect(slots[1].meal!.items.some((i) => i.foodId.startsWith('yogur') || i.foodId === 'leche_fermentada_proteica')).toBe(true);
   });
 });
+
+describe('repetir comidas y un solo hidrato', () => {
+  const gctx = { foods: seed.foods, conversions: seed.conversions, profiles: seed.profiles, settings: seed.settings, ratings: {} };
+
+  it('entiende "repetir dos días"', () => {
+    expect(P('plan para la semana que viene con pollo, que se repitan las comidas dos días seguidos').repetir).toBe(2);
+    expect(P('semana que viene, lunes y martes las mismas comidas, miércoles y jueves igual').repetir).toBe(2);
+    expect(P('plan de esta semana para cocinar para dos días').repetir).toBe(2);
+    expect(P('plan para los próximos dos días con arroz').repetir).toBe(1);
+  });
+
+  it('el segundo día de cada pareja lleva la misma comida', () => {
+    const idea = { ...P('plan para la semana que viene con arroz, pollo y carne de vaca'), bloques: ['B' as const], repetir: 2 };
+    const slots = [...planSlots(idea, { gctx, favorites: seed.favorites, history: [], bloquesSeparados: [] })];
+    expect(slots).toHaveLength(7);
+    const sig = (i: number) => slots[i].meal!.items.map((x) => x.foodId).sort().join();
+    expect(sig(1)).toBe(sig(0));
+    expect(slots[1].igualQue).toBe(slots[0].fecha);
+    expect(sig(3)).toBe(sig(2));
+    expect(sig(2)).not.toBe(sig(0)); // la pareja siguiente cambia
+  });
+
+  it('nunca dos hidratos o dos proteínas pedidos en la misma comida', () => {
+    const items = P('plan con pasta, algunos días papas, pollo y carne').reglas[0].items;
+    for (let k = 0; k < 7; k++) {
+      const r = requiredFor(items, k, 'B', fm);
+      const cats = r.foods.map((f) => fm[f].categoria);
+      expect(cats.filter((c) => c === 'hidrato').length).toBeLessThanOrEqual(1);
+      expect(cats.filter((c) => c === 'proteina').length).toBeLessThanOrEqual(1);
+    }
+  });
+});

@@ -14,6 +14,7 @@ import { ProgressScreen } from './screens/ProgressScreen';
 import { MercadonaScreen } from './screens/MercadonaScreen';
 import { CasaScreen, type CasaView } from './screens/CasaScreen';
 import { ConfirmDaySheet } from './components/ConfirmDaySheet';
+import { GlobalSearch, type SearchTarget } from './components/GlobalSearch';
 import { onReminderTap, scheduleReminders } from './lib/notify';
 import { todayKey } from './lib/day';
 import { isNative } from './integrations/mercadona/http';
@@ -54,6 +55,28 @@ export default function App() {
   const [casaView, setCasaView] = useState<CasaView | undefined>();
   const [casaKey, setCasaKey] = useState(0);
   const [confirmFecha, setConfirmFecha] = useState<string | null>(null);
+  const [search, setSearch] = useState(false);
+  const [jump, setJump] = useState<{ fav?: string; food?: string; item?: string; fecha?: string; n: number }>({ n: 0 });
+  const goSearch = (t: SearchTarget) => {
+    const n = jump.n + 1;
+    if (t.kind === 'favorito') {
+      setJump({ fav: t.id, n });
+      setTab('favoritos');
+    } else if (t.kind === 'alimento') {
+      setJump({ food: t.id, n });
+      setTab('mas');
+      setMore('alimentos');
+    } else if (t.kind === 'casa') {
+      setJump({ item: t.id, n });
+      setCasaView('stock');
+      setCasaKey((k) => k + 1);
+      setTab('casa');
+    } else {
+      setJump({ fecha: t.fecha, n });
+      setTab('plan');
+    }
+    window.scrollTo(0, 0);
+  };
   const dataRef = useRef(data);
   dataRef.current = data;
   const [tab, setTab] = useState<Tab>('inicio');
@@ -61,8 +84,8 @@ export default function App() {
   const [more, setMore] = useState<MoreView>('menu');
   const [preset, setPreset] = useState<GeneratorPreset | undefined>();
   const [genKey, setGenKey] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
-  const showToast = useCallback((t: string) => setToast(t), []);
+  const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
+  const showToast = useCallback<Toaster>((text, undo) => setToast({ text, undo }), []);
   const clearToast = useCallback(() => setToast(null), []);
 
   // botón atrás a nivel de pantallas: submenú de Más → menú; otra pestaña → Hoy; en Hoy → salir
@@ -187,6 +210,9 @@ export default function App() {
               {SYNC_ICON[syncStatus]}
             </button>
           )}
+          <button className="iconbtn" style={{ border: 'none', background: 'none' }} title="Buscar" aria-label="Buscar" onClick={() => setSearch(true)}>
+            🔎
+          </button>
           <WeightToggle />
         </div>
       </header>
@@ -202,6 +228,7 @@ export default function App() {
         />
       )}
       {tab === 'plan' && <PlanScreen
+          focusDate={jump.fecha}
           onGenerate={goGenerate}
           onOpenMercadona={() => {
             setTab('mas');
@@ -210,8 +237,8 @@ export default function App() {
       {tab === 'generar' && (
         <GeneratorScreen key={genKey} preset={preset} onToast={showToast} onUsed={() => setTab(returnTo === 'plan' ? 'plan' : 'inicio')} />
       )}
-      {tab === 'casa' && <CasaScreen key={casaKey} initialView={casaView} onToast={showToast} />}
-      {tab === 'favoritos' && <FavoritesScreen onToast={showToast} />}
+      {tab === 'casa' && <CasaScreen key={casaKey} initialView={casaView} initialItem={jump.item} onToast={showToast} />}
+      {tab === 'favoritos' && <FavoritesScreen key={`f${jump.n}`} initialOpen={jump.fav} onToast={showToast} />}
       {tab === 'mas' && more === 'menu' && (
         <div className="screen">
           <div className="list">
@@ -228,7 +255,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {tab === 'mas' && more === 'alimentos' && <FoodsScreen onToast={showToast} />}
+      {tab === 'mas' && more === 'alimentos' && <FoodsScreen key={`a${jump.n}`} initialFood={jump.food} onToast={showToast} />}
       {tab === 'mas' && more === 'progreso' && <ProgressScreen onToast={showToast} />}
       {tab === 'mas' && more === 'mercadona' && <MercadonaScreen onToast={showToast} />}
       {tab === 'mas' && more === 'sync' && <SyncScreen onToast={showToast} />}
@@ -271,7 +298,8 @@ export default function App() {
           onToast={showToast}
         />
       )}
-      {toast && <Toast text={toast} onDone={clearToast} />}
+      {search && <GlobalSearch onClose={() => setSearch(false)} onGo={goSearch} />}
+      {toast && <Toast text={toast.text} undo={toast.undo} onDone={clearToast} />}
     </div>
   );
 }

@@ -12,7 +12,7 @@ const memo: { filtro: Filtro } = { filtro: 'sin' };
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
 /** Todos los alimentos de la app con su producto de Mercadona: vincular, confirmar o cambiar uno a uno, o proponer todos. */
-export function MercaLinksManager({ onToast }: { onToast: (t: string) => void }) {
+export function MercaLinksManager({ onToast }: { onToast: Toaster }) {
   const { data, activeFoods, setMercaLink, setMercaConfig } = useStore();
   const [filtro, setFiltro] = useState<Filtro>(memo.filtro);
   memo.filtro = filtro;

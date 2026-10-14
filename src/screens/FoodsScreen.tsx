@@ -52,12 +52,12 @@ export function newFood(): Food {
   };
 }
 
-export function FoodsScreen({ onToast }: { onToast: (t: string) => void }) {
+export function FoodsScreen({ onToast, initialFood }: { onToast: Toaster; initialFood?: string }) {
   const { data } = useStore();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<Category | 'todas'>('todas');
   const [archived, setArchived] = useState(false);
-  const [editing, setEditing] = useState<Food | null>(null);
+  const [editing, setEditing] = useState<Food | null>(() => (initialFood ? (data.foods.find((f) => f.id === initialFood) ?? null) : null));
   const [scanning, setScanning] = useState(false);
   const [looking, setLooking] = useState(false);
 
@@ -158,7 +158,7 @@ function FoodForm({
 }: {
   food: Food;
   onClose: () => void;
-  onToast: (t: string) => void;
+  onToast: Toaster;
   onSwitch: (f: Food) => void;
 }) {
   const { data, saveFood, duplicateFood, setArchived } = useStore();

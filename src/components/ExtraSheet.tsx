@@ -13,7 +13,7 @@ import { NumberInput, Segmented, Sheet } from './ui';
 type Who = 'ambos' | ProfileId;
 
 /** Añadir un extra fuera del plan en 2 toques: alimento → (quién y cuánto) → guardar. */
-export function ExtraSheet({ fecha, onClose, onToast }: { fecha: string; onClose: () => void; onToast: (t: string) => void }) {
+export function ExtraSheet({ fecha, onClose, onToast }: { fecha: string; onClose: () => void; onToast: Toaster }) {
   const { data, fm, cm, addExtra } = useStore();
   const [foodId, setFoodId] = useState<string | null>(null);
   const [who, setWho] = useState<Who>(data.settings.yoSoy ?? 'ambos');

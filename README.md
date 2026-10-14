@@ -282,3 +282,19 @@ Código: `src/lib/stock.ts` (motor), `src/lib/voz.ts` (intérprete), `src/integr
 
 ### v1.6.2 — Cómo se repone cada cosa
 Cada producto de casa tiene modo al acabarse: **🔁 habitual** (entra solo en la compra), **❓ preguntar** (sale en "¿Volver a comprar?" con [Sí, siempre] [Solo esta vez] [No]) o **🚫 no reponer**. Lo nuevo de un pedido empieza en ❓ y pasa a 🔁 si se compra otra vez; un ❓ sin comprar en 2 meses deja de preguntar. Se cambia cuando se quiera: ficha, cesta (al desmarcar) o voz ("no me gustó", "de vez en cuando", "vuelve a comprarlo siempre").
+
+## Novedades v1.6.4 – v1.6.6
+
+- **Vincular todos los alimentos con Mercadona** (Más → Mercadona): filtros, proponer todos, confirmar sugeridos, otra tienda; también desde la ficha del alimento y de la despensa.
+- **Ventanas que se desplazan bien** con listas largas (favoritos, búsqueda de Mercadona…).
+- **Favoritos**: ordenar (más usados, recientes, nuevos, A–Z, mejor valorados, más proteína, menos kcal, con lo que hay en casa, más baratos); **iconos automáticos** de sus ingredientes (🍗🥔) o elegidos a mano; foto opcional; **preparación** (notas) editable.
+- **🔁 Variantes**: cambiar solo el hidrato / la proteína / la verdura por otro con la cantidad equivalente, reajustando solo el nuevo para seguir en el objetivo. Desde un favorito (guardar como nuevo / usar hoy), desde una comida de Hoy y desde el Plan.
+- **Avisos de lo que falta** en el Plan y en Hoy (la despensa simulada comida a comida), con "🔁 Cambiar".
+- **Coste** de cada comida, día y semana con los precios de Mercadona.
+- **↺ Deshacer** al quitar comidas, extras, favoritos, artículos de la despensa o vínculos.
+- **🔎 Buscador general** (favoritos, plan, despensa, alimentos).
+- **Lista de la compra por secciones** de tienda; "Comprados" suma a la despensa.
+- **Modo cocinar** con la preparación grande y **temporizador**.
+- **Progreso → ✅ Plan**: cumplimiento de las últimas 4 semanas.
+
+Código nuevo: `src/lib/mealInfo.ts` (iconos, coste, orden, secciones), `src/lib/variants.ts`, `src/lib/adherence.ts`, `src/lib/useStock.ts`, `src/components/VariantSheet.tsx`, `src/components/GlobalSearch.tsx`.

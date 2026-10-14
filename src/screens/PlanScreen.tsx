@@ -13,7 +13,6 @@ import {
   formatDay,
   plannedMeals,
   shoppingList,
-  shoppingText,
   splitRealYield,
   weekDates,
   weekStart,
@@ -25,6 +24,10 @@ import { NumberInput, Segmented, Sheet, Warnings, CATEGORY_ICONS } from '../comp
 import { FavoritePickSheet, FreeMealSheet } from './HomeScreen';
 import { shareText } from './SyncScreen';
 import { MercaBasketView } from './MercaBasket';
+import { VariantSheet } from '../components/VariantSheet';
+import { dayCost, useShortages } from '../lib/useStock';
+import { eur, sectionFor, SECTIONS } from '../lib/mealInfo';
+import { ev, foodItem } from '../lib/stock';
 
 type View = 'semana' | 'compra' | 'cocinar';
 
@@ -46,15 +49,24 @@ export function PlanScreen({
   onGenerate,
   onOpenMercadona,
   onToast,
+  focusDate,
 }: {
+  focusDate?: string;
   onGenerate: (b: Block, fecha: string, para: ProfileId | 'ambos') => void;
   onOpenMercadona: () => void;
-  onToast: (t: string) => void;
+  onToast: Toaster;
 }) {
   const [compra, setCompra] = useRemembered<'lista' | 'mercadona'>('compra', 'lista');
   const today = todayKey();
   const [view, setView] = useRemembered<View>('view', 'semana');
   const [anchor, setAnchor] = useRemembered('anchor', today);
+  useEffect(() => {
+    if (focusDate) {
+      setView('semana');
+      setAnchor(focusDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusDate]);
   const [from, setFrom] = useRemembered('from', today);
   const [to, setTo] = useRemembered('to', addDays(weekStart(today), 6));
 
@@ -110,11 +122,27 @@ function WeekView({
   anchor: string;
   setAnchor: (d: string) => void;
   onGenerate: (b: Block, fecha: string, para: ProfileId | 'ambos') => void;
-  onToast: (t: string) => void;
+  onToast: Toaster;
 }) {
-  const { data, fm, getDay, copyDay, saveWeekTemplate } = useStore();
+  const { data, fm, cm, getDay, copyDay, saveWeekTemplate, setDaySlot, setPersonSlot } = useStore();
   const today = todayKey();
   const dates = weekDates(anchor);
+  const shortages = useShortages();
+  const [variantFor, setVariantFor] = useState<{ fecha: string; b: Block; pid?: ProfileId; index: number } | null>(null);
+  const weekCost = dates.reduce((s, d) => s + dayCost(getDay(d), fm, cm, data.mercadona.links), 0);
+  /** comida (compartida o de una persona) de un día/bloque que lleva un alimento */
+  const findMeal = (fecha: string, b: Block, foodId: string) => {
+    const day = getDay(fecha);
+    const opts: (ProfileId | undefined)[] = isSplit(day, b) ? [...PROFILE_IDS] : [undefined];
+    for (const pid of opts) {
+      const s = pid ? personSlot(day, b, pid) : day?.bloques[b];
+      if (s && !isFree(s)) {
+        const index = s.meal.items.findIndex((i) => i.foodId === foodId);
+        if (index >= 0) return { pid, index, meal: s.meal };
+      }
+    }
+    return null;
+  };
   const [slot, setSlot] = useState<SlotTarget | null>(null);
   const [copyFrom, setCopyFrom] = useState<string | null>(null);
   const [saveTpl, setSaveTpl] = useState(false);
@@ -151,6 +179,7 @@ function WeekView({
           <b>
             {formatDay(dates[0], { day: 'numeric', month: 'short' })} – {formatDay(dates[6], { day: 'numeric', month: 'short' })}
           </b>
+          {weekCost > 0 && <span className="tiny muted">💶 ≈ {eur(weekCost)} la semana</span>}
           {!dates.includes(today) && (
             <button className="btn small" style={{ minHeight: 26, padding: '2px 8px' }} onClick={() => setAnchor(today)}>
               Ir a hoy
@@ -196,6 +225,10 @@ function WeekView({
                 {day && (
                   <span className="tiny">
                     <span className="dani">{round(t.dani.kcal)}</span> / <span className="alba">{round(t.alba.kcal)}</span> kcal
+                    {(() => {
+                      const c = dayCost(day, fm, cm, data.mercadona.links);
+                      return c > 0 ? <span className="muted"> · {eur(c)}</span> : null;
+                    })()}
                   </span>
                 )}
                 {day && (
@@ -205,6 +238,25 @@ function WeekView({
                 )}
               </div>
             </div>
+            {shortages
+              .filter((s) => s.fecha === fecha && s.bloque && fecha >= today)
+              .map((s) => {
+                const found = findMeal(fecha, s.bloque!, s.foodId);
+                const f = fm[s.foodId];
+                return (
+                  <div key={`${s.foodId}${s.bloque}`} className="row between tiny" style={{ color: 'var(--warn)', gap: 6 }}>
+                    <span className="grow">
+                      ⚠️ {s.bloque}: no hay {f?.nombre.split(' (')[0].toLowerCase() ?? s.foodId} suficiente
+                      {s.falta > 0 ? ` (faltan ≈${Math.round(s.falta)} ${f?.unidadBase === 'unidad' ? 'ud' : f?.unidadBase ?? ''})` : ''}
+                    </span>
+                    {found && (
+                      <button className="btn small" onClick={() => setVariantFor({ fecha, b: s.bloque!, pid: found.pid, index: found.index })}>
+                        🔁 Cambiar
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             {BLOCKS.map((b) => {
               const split = isSplit(day, b) || (!blockHasContent(day, b) && separados.includes(b));
               if (!split) {
@@ -263,6 +315,33 @@ function WeekView({
           onToast={onToast}
         />
       )}
+      {variantFor &&
+        (() => {
+          const day = getDay(variantFor.fecha);
+          const s = variantFor.pid ? personSlot(day, variantFor.b, variantFor.pid) : day?.bloques[variantFor.b];
+          if (!s || isFree(s)) return null;
+          const v = variantFor;
+          const save = (x: DaySlot | undefined) => (v.pid ? setPersonSlot(v.b, v.pid, x, v.fecha) : setDaySlot(v.b, x, v.fecha));
+          return (
+            <VariantSheet
+              meal={s.meal}
+              initial={{ index: v.index }}
+              objetivos={targetsForDay(v.fecha, v.b, data.profiles, day, fm)}
+              onClose={() => setVariantFor(null)}
+              actions={[
+                {
+                  label: '✓ Cambiar en el plan',
+                  primary: true,
+                  run: (m) => {
+                    save({ meal: m });
+                    setVariantFor(null);
+                    onToast(`${formatDay(v.fecha)}: ${m.nombre}`, () => save(s));
+                  },
+                },
+              ]}
+            />
+          );
+        })()}
       {copyFrom && (
         <DateSheet
           title={`Copiar ${formatDay(copyFrom)} a…`}
@@ -294,7 +373,7 @@ function WeekView({
   );
 }
 
-function WeekTemplatesSheet({ weekStart: start, onClose, onToast }: { weekStart: string; onClose: () => void; onToast: (t: string) => void }) {
+function WeekTemplatesSheet({ weekStart: start, onClose, onToast }: { weekStart: string; onClose: () => void; onToast: Toaster }) {
   const { data, applyWeekTemplate, removeWeekTemplate } = useStore();
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const count = (w: WeekTemplate) =>
@@ -368,7 +447,7 @@ function SlotSheet({
   target: SlotTarget;
   onClose: () => void;
   onGenerate: () => void;
-  onToast: (t: string) => void;
+  onToast: Toaster;
 }) {
   const { data, fm, getDay, setDaySlot, setPersonSlot, placeMeal, splitBlock, joinBlock } = useStore();
   const { fecha, bloque, pid } = target;
@@ -464,8 +543,10 @@ function SlotSheet({
           <button
             className="btn danger"
             onClick={() => {
+              const prev = s;
               save(undefined);
               onClose();
+              onToast('Comida quitada', () => save(prev));
             }}
           >
             Quitar
@@ -528,10 +609,30 @@ function RangePicker({
 
 // ───────────────── Lista de la compra ─────────────────
 
-function ShoppingView({ from, to, onToast }: { from: string; to: string; onToast: (t: string) => void }) {
-  const { data, fm, cm, setShoppingChecked, setPantry } = useStore();
+function ShoppingView({ from, to, onToast }: { from: string; to: string; onToast: Toaster }) {
+  const { data, fm, cm, setShoppingChecked, setPantry, stockApply } = useStore();
   const meals = useMemo(() => plannedMeals(data.history, datesBetween(from, to)), [data.history, from, to]);
   const items = useMemo(() => shoppingList(meals, fm, cm), [meals, fm, cm]);
+  // por secciones, como los pasillos de una tienda
+  const groups = useMemo(() => {
+    const by = new Map<string, typeof items>();
+    for (const it of items) {
+      const sec = sectionFor(it.food, data.stock.items[it.food.id]?.zona);
+      by.set(sec, [...(by.get(sec) ?? []), it]);
+    }
+    return SECTIONS.filter((s) => by.has(s)).map((s) => ({ sec: s, items: by.get(s)! }));
+  }, [items, data.stock.items]);
+  const qtyText = (it: (typeof items)[number]) =>
+    it.unit === 'unidad' ? `${it.unidades} ${it.food.nombreUnidad ?? 'ud'}${it.unidades === 1 ? '' : 's'}` : `${it.comprar.toLocaleString('es-ES')} ${it.unit}`;
+  const listText = () =>
+    [
+      title,
+      ...groups.flatMap((g) => [
+        '',
+        `— ${g.sec} —`,
+        ...g.items.map((it) => `${checked.includes(it.food.id) || data.pantry.includes(it.food.id) ? '☑' : '☐'} ${shortName(it.food)} — ${qtyText(it)}`),
+      ]),
+    ].join('\n');
   const checked = data.shoppingChecked;
   const toggle = (id: string) => setShoppingChecked(checked.includes(id) ? checked.filter((x) => x !== id) : [...checked, id]);
   const title = `🛒 Compra ${formatDay(from, { day: 'numeric', month: 'short' })} – ${formatDay(to, { day: 'numeric', month: 'short' })}`;
@@ -546,8 +647,11 @@ function ShoppingView({ from, to, onToast }: { from: string; to: string; onToast
         {meals.length} comidas · cantidades para Dani y Alba juntas, <b>tal como se compran</b> (en crudo / seco / congelado). Quedan{' '}
         <b>{pending}</b> por comprar.
       </div>
+      {groups.map((g) => (
+      <div key={g.sec} className="col" style={{ gap: 4 }}>
+      <b className="small" style={{ marginTop: 4 }}>{g.sec}</b>
       <div className="list">
-        {items.map((it) => {
+        {g.items.map((it) => {
           const on = checked.includes(it.food.id);
           const home = data.pantry.includes(it.food.id);
           return (
@@ -565,19 +669,19 @@ function ShoppingView({ from, to, onToast }: { from: string; to: string; onToast
                 </span>
               </span>
               <b className="small" style={{ whiteSpace: 'nowrap' }}>
-                {it.unit === 'unidad'
-                  ? `${it.unidades} ${it.food.nombreUnidad ?? 'ud'}${it.unidades === 1 ? '' : 's'}`
-                  : `${it.comprar.toLocaleString('es-ES')} ${it.unit}`}
+                {qtyText(it)}
               </b>
             </label>
           );
         })}
       </div>
+      </div>
+      ))}
       <div className="btn-row">
         <button
           className="btn primary small"
           onClick={async () => {
-            const r = await shareText(shoppingText(items, title, checked, data.pantry), title);
+            const r = await shareText(listText(), title);
             onToast(r === 'copied' ? 'Lista copiada' : r === 'shared' ? 'Lista compartida' : 'No se pudo compartir');
           }}
         >
@@ -588,8 +692,16 @@ function ShoppingView({ from, to, onToast }: { from: string; to: string; onToast
           disabled={!checked.length}
           onClick={() => {
             setPantry([...new Set([...data.pantry, ...checked])]);
+            // y si se lleva la despensa, lo comprado suma al stock
+            if (data.stock.config.desde) {
+              const bought = items.filter((it) => checked.includes(it.food.id));
+              stockApply({
+                items: bought.map((it) => data.stock.items[it.food.id] ?? foodItem(it.food, todayKey())),
+                events: bought.map((it) => ev(it.food.id, 'delta', { valor: it.unit === 'unidad' ? (it.unidades ?? 0) : it.comprar }, 'compra')),
+              });
+            }
             setShoppingChecked([]);
-            onToast('Marcados añadidos a “Tengo en casa”');
+            onToast(data.stock.config.desde ? 'Comprado: sumado a la despensa' : 'Marcados añadidos a “Tengo en casa”');
           }}
         >
           🏠 Comprados → despensa
@@ -605,7 +717,7 @@ function ShoppingView({ from, to, onToast }: { from: string; to: string; onToast
 
 // ───────────────── Cocinar en tanda ─────────────────
 
-function BatchView({ from, to, onToast }: { from: string; to: string; onToast: (t: string) => void }) {
+function BatchView({ from, to, onToast }: { from: string; to: string; onToast: Toaster }) {
   const { data, fm, cm, saveConversion } = useStore();
   const meals = useMemo(() => plannedMeals(data.history, datesBetween(from, to)), [data.history, from, to]);
   const foods = useMemo(() => batchFromPlan(meals, fm, cm), [meals, fm, cm]);

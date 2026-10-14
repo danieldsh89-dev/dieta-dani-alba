@@ -11,7 +11,7 @@ import { NumberInput, Sheet, Warnings } from '../components/ui';
 
 // ───────────────── Conversiones y calibrar cocción ─────────────────
 
-export function ConversionsScreen({ onToast }: { onToast: (t: string) => void }) {
+export function ConversionsScreen({ onToast }: { onToast: Toaster }) {
   const { data, saveConversion } = useStore();
   const [calib, setCalib] = useState<{ conv: CookingConversion; methodId: string } | null>(null);
   return (
@@ -278,7 +278,7 @@ export function HistoryScreen() {
 
 // ───────────────── Datos: exportar / importar / reset ─────────────────
 
-export function DataScreen({ onToast }: { onToast: (t: string) => void }) {
+export function DataScreen({ onToast }: { onToast: Toaster }) {
   const { data, importData, resetData } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);

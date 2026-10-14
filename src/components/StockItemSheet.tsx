@@ -16,7 +16,7 @@ const freqLabel = (d: number) => (d === 7 ? '1 semana' : d <= 21 && d % 7 === 0 
 const ORIGEN: Record<string, string> = { voz: '🎤', pedido: '📦', compra: '🛍️', revision: '🔎', manual: '✋', tirado: '🗑️', importado: '📥' };
 
 /** Ficha de un artículo de la despensa: corregir cantidad, nivel, caducidad, zona, producto y frecuencia. */
-export function StockItemSheet({ item, state, onClose, onToast }: { item: StockItem; state?: ItemState; onClose: () => void; onToast: (t: string) => void }) {
+export function StockItemSheet({ item, state, onClose, onToast }: { item: StockItem; state?: ItemState; onClose: () => void; onToast: Toaster }) {
   const { data, fm, stockApply } = useStore();
   const food = item.foodId ? fm[item.foodId] : undefined;
   const product = itemProduct(data, item);
@@ -243,7 +243,7 @@ export function StockItemSheet({ item, state, onClose, onToast }: { item: StockI
               className="btn small danger"
               onClick={() => {
                 stockApply({ removeItems: [item.id] });
-                onToast('Quitado de la despensa');
+                onToast('Quitado de la despensa', () => stockApply({ items: [item] }));
                 onClose();
               }}
             >

@@ -26,7 +26,7 @@ export function OptionCard({
   onRegenerate?: () => void;
   onUse: (meal: Meal) => void;
   useLabel?: string;
-  onToast: (t: string) => void;
+  onToast: Toaster;
 }) {
   const { data, genCtx, addFavorite, placeMeal, rateMeal } = useStore();
   const [planning, setPlanning] = useState(false);

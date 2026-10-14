@@ -249,12 +249,27 @@ export function NumberInput({
   );
 }
 
-export function Toast({ text, onDone }: { text: string; onDone: () => void }) {
+export function Toast({ text, undo, onDone }: { text: string; undo?: () => void; onDone: () => void }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 2200);
+    const t = setTimeout(onDone, undo ? 6000 : 2200);
     return () => clearTimeout(t);
-  }, [text, onDone]);
-  return <div className="toast">{text}</div>;
+  }, [text, undo, onDone]);
+  return (
+    <div className="toast row" style={{ gap: 12, alignItems: 'center' }}>
+      <span>{text}</span>
+      {undo && (
+        <button
+          className="toast-undo"
+          onClick={() => {
+            undo();
+            onDone();
+          }}
+        >
+          ↺ Deshacer
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function Warnings({ items }: { items: { level?: string; text: string }[] | string[] }) {

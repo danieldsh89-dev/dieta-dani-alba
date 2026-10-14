@@ -34,11 +34,11 @@ const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', curren
 
 const NIVEL_BADGE = { ok: '', poco: 'warn', agotado: 'bad' } as const;
 
-export function CasaScreen({ onToast, initialView }: { onToast: (t: string) => void; initialView?: CasaView }) {
+export function CasaScreen({ onToast, initialView, initialItem }: { onToast: Toaster; initialView?: CasaView; initialItem?: string }) {
   const { data, fm, cm } = useStore();
   const [view, setView] = useState<View>(initialView === 'voz' ? 'stock' : (initialView ?? memo.view));
   memo.view = view;
-  const [open, setOpen] = useState<StockItem | null>(null);
+  const [open, setOpen] = useState<StockItem | null>(() => (initialItem ? (data.stock.items[initialItem] ?? null) : null));
   const hoy = todayKey();
   const states = useMemo(() => computeStock(data, fm, cm), [data, fm, cm]);
   const items = Object.values(data.stock.items);
@@ -92,7 +92,7 @@ export function CasaScreen({ onToast, initialView }: { onToast: (t: string) => v
 
 // ───────── primeros pasos ─────────
 
-function Onboarding({ onToast, onCount }: { onToast: (t: string) => void; onCount: () => void }) {
+function Onboarding({ onToast, onCount }: { onToast: Toaster; onCount: () => void }) {
   const { stockApply } = useStore();
   return (
     <div className="card">
@@ -127,7 +127,7 @@ function Onboarding({ onToast, onCount }: { onToast: (t: string) => void; onCoun
 
 type Filtro = 'todo' | 'falta' | 'hay' | 'sin';
 
-function StockView({ states, onOpen, onToast }: { states: Record<string, ItemState>; onOpen: (it: StockItem) => void; onToast: (t: string) => void }) {
+function StockView({ states, onOpen, onToast }: { states: Record<string, ItemState>; onOpen: (it: StockItem) => void; onToast: Toaster }) {
   const { data, fm, stockApply } = useStore();
   const [filtro, setFiltro] = useState<Filtro>('todo');
   const [q, setQ] = useState('');
@@ -360,7 +360,7 @@ function QuickRow({ it, s, onOpen, done }: { it: StockItem; s?: ItemState; onOpe
   );
 }
 
-function ReviewView({ states, onOpen, onToast }: { states: Record<string, ItemState>; onOpen: (it: StockItem) => void; onToast: (t: string) => void }) {
+function ReviewView({ states, onOpen, onToast }: { states: Record<string, ItemState>; onOpen: (it: StockItem) => void; onToast: Toaster }) {
   const { data, fm, stockApply } = useStore();
   const [mode, setMode] = useState<'rapida' | 'zona'>('rapida');
   const [zona, setZona] = useState<StockZone>(memo.zona ?? 'nevera');
@@ -469,7 +469,7 @@ function ReviewView({ states, onOpen, onToast }: { states: Record<string, ItemSt
 
 // ───────── compras y gasto ─────────
 
-function ComprasView({ onToast }: { onToast: (t: string) => void }) {
+function ComprasView({ onToast }: { onToast: Toaster }) {
   const { data, fm, stockApply } = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -579,7 +579,7 @@ function ComprasView({ onToast }: { onToast: (t: string) => void }) {
 
 // ───────── ajustes ─────────
 
-function AjustesView({ onToast }: { onToast: (t: string) => void }) {
+function AjustesView({ onToast }: { onToast: Toaster }) {
   const { data, stockApply } = useStore();
   const cfg = data.stock.config;
   const fileRef = useRef<HTMLInputElement>(null);

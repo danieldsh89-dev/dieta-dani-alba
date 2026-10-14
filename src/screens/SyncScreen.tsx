@@ -31,7 +31,7 @@ export async function shareText(text: string, title: string): Promise<'shared' |
   }
 }
 
-export function SyncScreen({ onToast }: { onToast: (t: string) => void }) {
+export function SyncScreen({ onToast }: { onToast: Toaster }) {
   const { data, syncStatus, syncNow, configureCloud, joinHousehold, leaveHousehold } = useStore();
   const cfg = cloudConfig(data);
   const builtIn = !!(SUPABASE_URL && SUPABASE_ANON_KEY);

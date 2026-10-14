@@ -194,6 +194,8 @@ export interface Favorite extends Meal {
   ultimoUso?: string;
   /** foto (dataURL JPEG reducida) */
   foto?: string;
+  /** icono elegido a mano (si no hay foto); sin él se ponen los de sus ingredientes */
+  icono?: string;
 }
 
 export interface FreeMeal {
@@ -432,6 +434,8 @@ export interface Settings {
   bloquesSeparados: Block[];
   /** de quién es este móvil (no se sincroniza): para preseleccionar en los bloques separados */
   yoSoy?: ProfileId;
+  /** orden de los favoritos (de este móvil) */
+  ordenFavoritos?: 'usados' | 'recientes' | 'nuevos' | 'az' | 'valorados' | 'proteina' | 'kcal' | 'casa' | 'baratos';
 }
 
 /** Estado de sincronización en la nube (por dispositivo) */

@@ -53,6 +53,8 @@ interface Store {
   addFavorite: (meal: Meal) => Favorite;
   updateFavorite: (fav: Favorite) => void;
   removeFavorite: (id: string) => void;
+  /** vuelve a poner un favorito borrado (deshacer) */
+  restoreFavorite: (fav: Favorite) => void;
   /** registra que se ha usado un favorito (para ordenar por más usados) */
   markFavoriteUsed: (id: string) => void;
   setDayTraining: (pid: ProfileId, value: boolean | undefined, fecha?: string) => void;
@@ -214,6 +216,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     },
     [fm],
   );
+
+  const restoreFavorite = useCallback((fav: Favorite) => {
+    setData((d) => touch({ ...d, favorites: [fav, ...d.favorites.filter((f) => f.id !== fav.id)] }, [key('fav', fav.id)]));
+  }, []);
 
   const removeFavorite = useCallback((id: string) => {
     setData((d) => tombstone({ ...d, favorites: d.favorites.filter((f) => f.id !== id) }, [key('fav', id)]));
@@ -614,6 +620,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     addFavorite,
     updateFavorite,
     removeFavorite,
+    restoreFavorite,
     markFavoriteUsed,
     setDayTraining,
     addWeight,

@@ -17,13 +17,18 @@ import {
 import { addDays } from '../lib/planning';
 import { nutrientsFor, round } from '../lib/nutrition';
 import { displayQuantity } from '../lib/conversions';
-import { favoriteToMeal, sortFavorites } from '../lib/favorites';
+import { favoriteToMeal } from '../lib/favorites';
 import { shortName } from '../lib/mealGenerator';
 import { MealEditor } from '../components/MealEditor';
 import { CookMode } from '../components/CookMode';
 import { ExtraSheet } from '../components/ExtraSheet';
 import { MacroBar, NumberInput, Progress, Sheet } from '../components/ui';
-import { FavThumb } from './FavoritesScreen';
+import { FavThumb, SortSelect, useFavSorting } from './FavoritesScreen';
+import { VariantSheet } from '../components/VariantSheet';
+import { useDayCost, useShortages } from '../lib/useStock';
+import { eur } from '../lib/mealInfo';
+import { filterFavorites } from '../lib/favorites';
+import { normalize } from '../components/FoodPicker';
 import { dayMeals } from '../lib/day';
 
 const BLOCK_NAMES: Record<Block, string> = {
@@ -45,9 +50,9 @@ export function HomeScreen({
 }: {
   onGenerate: (b: Block, para: ProfileId | 'ambos') => void;
   onProgress: () => void;
-  onToast: (t: string) => void;
+  onToast: Toaster;
 }) {
-  const { data, fm, cm, getDay, setDaySlot, setPersonSlot, splitBlock, joinBlock, placeMeal, copyBlockTo, removeExtra, setCompensar, setDayTraining, confirmDay } =
+  const { data, fm, cm, getDay, setDaySlot, setPersonSlot, splitBlock, joinBlock, placeMeal, copyBlockTo, removeExtra, addExtra, addFavorite, setCompensar, setDayTraining, confirmDay } =
     useStore();
   const fecha = todayKey();
   const ayer = addDays(fecha, -1);
@@ -62,6 +67,25 @@ export function HomeScreen({
   const [cookFor, setCookFor] = useState<Target | null>(null);
   const [menuFor, setMenuFor] = useState<Target | null>(null);
   const [extra, setExtra] = useState(false);
+  const [variantFor, setVariantFor] = useState<(Target & { index?: number }) | null>(null);
+  const cost = useDayCost(day);
+  const shortages = useShortages();
+  // lo que falta para las comidas de hoy, con la comida y el ingrediente para cambiarlo
+  const faltasHoy = shortages
+    .filter((s) => s.fecha === fecha && s.bloque)
+    .map((s) => {
+      const b = s.bloque!;
+      const targets: Target[] = isSplit(day, b) ? PROFILE_IDS.map((pid) => ({ b, pid })) : [{ b }];
+      for (const t of targets) {
+        const sl = t.pid ? personSlot(day, b, t.pid) : day?.bloques[b];
+        if (sl && !isFree(sl)) {
+          const index = sl.meal.items.findIndex((i) => i.foodId === s.foodId);
+          if (index >= 0) return { s, t, index };
+        }
+      }
+      return null;
+    })
+    .filter(Boolean) as { s: (typeof shortages)[number]; t: Target; index: number }[];
   const hasFree = BLOCKS.some((b) => PROFILE_IDS.some((p) => isFree(personSlot(day, b, p))));
   const separados = data.settings.bloquesSeparados ?? [];
 
@@ -86,6 +110,9 @@ export function HomeScreen({
       </button>
       <button className="btn small" onClick={() => onGenerate(t.b, t.pid ?? 'ambos')}>
         Cambiar
+      </button>
+      <button className="btn small" title="Cambiar solo el hidrato, la proteína…" onClick={() => setVariantFor(t)}>
+        🔁 Variante
       </button>
       <button className="btn small" aria-label="Más opciones" onClick={() => setMenuFor(t)}>
         ⋯
@@ -139,7 +166,14 @@ export function HomeScreen({
           <button className="btn small" onClick={() => setFreeFor(t)}>
             Editar
           </button>
-          <button className="btn small danger" onClick={() => saveSlot(t, undefined)}>
+          <button
+            className="btn small danger"
+            onClick={() => {
+              const prev = slotOf(t);
+              saveSlot(t, undefined);
+              onToast('Comida quitada', () => saveSlot(t, prev));
+            }}
+          >
             Quitar
           </button>
         </div>
@@ -228,6 +262,11 @@ export function HomeScreen({
             </div>
           );
         })}
+        {cost.total > 0 && (
+          <div className="tiny muted">
+            💶 Hoy ≈ {eur(cost.total)} ({PROFILE_IDS.map((p) => `${data.profiles[p].nombre} ${eur(cost.porPersona[p])}`).join(' · ')})
+          </div>
+        )}
         {hasFree && (
           <label className="check small">
             <input type="checkbox" checked={!!day?.compensar} onChange={(e) => setCompensar(e.target.checked)} />
@@ -236,6 +275,23 @@ export function HomeScreen({
         )}
       </div>
 
+      {faltasHoy.length > 0 && (
+        <div className="card tight">
+          <b className="small">⚠️ Para hoy no llega lo que hay en casa</b>
+          {faltasHoy.map(({ s, t, index }) => (
+            <div key={`${s.foodId}${t.b}${t.pid ?? ''}`} className="row between small" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+              <span className="grow">
+                {fm[s.foodId]?.nombre.split(' (')[0]} · {t.b}
+                {t.pid ? ` (${data.profiles[t.pid].nombre})` : ''}
+                <span className="tiny muted"> · faltan ≈{Math.round(s.falta)} {fm[s.foodId]?.unidadBase === 'unidad' ? 'ud' : fm[s.foodId]?.unidadBase}</span>
+              </span>
+              <button className="btn small" onClick={() => setVariantFor({ ...t, index })}>
+                🔁 Cambiar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {(ayerParaHoy.length > 0 || hoyParaManana.length > 0) && (
         <div className="btn-row">
           {ayerParaHoy.length > 0 && (
@@ -340,7 +396,10 @@ export function HomeScreen({
                   </span>
                 ))}
               </span>
-              <button className="iconbtn" aria-label="Quitar extra" onClick={() => removeExtra(e.id, fecha)}>
+              <button className="iconbtn" aria-label="Quitar extra" onClick={() => {
+                removeExtra(e.id, fecha);
+                onToast('Extra quitado', () => addExtra(e, fecha));
+              }}>
                 ✕
               </button>
             </div>
@@ -375,8 +434,11 @@ export function HomeScreen({
             <button
               className="btn danger"
               onClick={() => {
-                saveSlot(menuFor, undefined);
+                const t = menuFor;
+                const prev = slotOf(t);
+                saveSlot(t, undefined);
                 setMenuFor(null);
+                onToast('Comida quitada', () => saveSlot(t, prev));
               }}
             >
               Quitar
@@ -440,6 +502,41 @@ export function HomeScreen({
           return <CookMode meal={s.meal} onClose={() => setCookFor(null)} />;
         })()}
       {extra && <ExtraSheet fecha={fecha} onClose={() => setExtra(false)} onToast={onToast} />}
+      {variantFor &&
+        (() => {
+          const s = slotOf(variantFor);
+          if (!s || isFree(s)) return null;
+          const t = variantFor;
+          const prev = s;
+          return (
+            <VariantSheet
+              meal={s.meal}
+              initial={t.index !== undefined ? { index: t.index } : undefined}
+              objetivos={targetsForDay(fecha, t.b, data.profiles, day, fm)}
+              onClose={() => setVariantFor(null)}
+              actions={[
+                {
+                  label: '✓ Cambiar en esta comida',
+                  primary: true,
+                  run: (m) => {
+                    saveSlot(t, { meal: { ...m, ajustadoReal: s.meal.ajustadoReal } });
+                    setVariantFor(null);
+                    onToast(`Ahora: ${m.nombre}`, () => saveSlot(t, prev));
+                  },
+                },
+                {
+                  label: 'Cambiar y guardar como favorito',
+                  run: (m) => {
+                    saveSlot(t, { meal: m });
+                    addFavorite({ ...m, origen: 'favorito' });
+                    setVariantFor(null);
+                    onToast(`Ahora: ${m.nombre} (y en favoritos)`, () => saveSlot(t, prev));
+                  },
+                },
+              ]}
+            />
+          );
+        })()}
     </div>
   );
 }
@@ -457,10 +554,22 @@ export function FavoritePickSheet({
   onClose: () => void;
 }) {
   const { data, markFavoriteUsed } = useStore();
-  const favs = sortFavorites(data.favorites.filter((f) => f.bloque === block && (!para || !f.para || f.para === para)));
+  const sorting = useFavSorting();
+  const [q, setQ] = useState('');
+  const favs = sorting.apply(
+    filterFavorites(
+      data.favorites.filter((f) => f.bloque === block && (!para || !f.para || f.para === para)),
+      normalize(q),
+      {},
+      data.foods,
+    ),
+  );
   return (
     <Sheet title={`Favoritos ${block}${para ? ` · solo ${data.profiles[para].nombre}` : ''}`} onClose={onClose}>
-      <div className="sub">Los más usados, arriba.</div>
+      <div className="row" style={{ gap: 6 }}>
+        <input type="search" placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <SortSelect value={sorting.sort} onChange={sorting.setSort} />
+      </div>
       <div className="list">
         {favs.map((f) => (
           <button

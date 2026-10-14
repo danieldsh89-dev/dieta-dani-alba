@@ -9,7 +9,7 @@ import { Sheet, Warnings } from './ui';
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
 /** Elegir (o cambiar) el producto de Mercadona de un alimento de la app. */
-export function MercaLinkSheet({ food, onClose, onToast }: { food: Food; onClose: () => void; onToast: (t: string) => void }) {
+export function MercaLinkSheet({ food, onClose, onToast }: { food: Food; onClose: () => void; onToast: Toaster }) {
   const { data, setMercaLink } = useStore();
   const current = data.mercadona.links[food.id];
   const [q, setQ] = useState(queryFor(food));
@@ -59,7 +59,7 @@ export function MercaLinkSheet({ food, onClose, onToast }: { food: Food; onClose
               className="btn small danger"
               onClick={() => {
                 setMercaLink(food.id, undefined);
-                onToast('Desvinculado');
+                onToast('Desvinculado', () => setMercaLink(food.id, current));
                 onClose();
               }}
             >

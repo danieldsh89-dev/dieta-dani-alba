@@ -10,7 +10,7 @@ import { MercaLinksManager } from './MercaLinks';
 
 const fecha = (iso?: string) => (iso ? new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 
-export function MercadonaScreen({ onToast }: { onToast: (t: string) => void }) {
+export function MercadonaScreen({ onToast }: { onToast: Toaster }) {
   const { setMercaConfig, data } = useStore();
   const cfg = data.mercadona.config;
   const native = isNative();

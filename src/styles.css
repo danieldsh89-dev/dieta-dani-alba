@@ -772,6 +772,14 @@ textarea:focus {
   padding: 24px 12px;
   font-size: 0.9rem;
 }
+.toast-undo {
+  background: none;
+  border: none;
+  color: #9be3b4;
+  font-weight: 700;
+  padding: 4px 2px;
+  white-space: nowrap;
+}
 .toast {
   position: fixed;
   left: 50%;

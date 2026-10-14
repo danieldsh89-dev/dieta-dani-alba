@@ -114,8 +114,86 @@ export function CookMode({ meal, onClose }: { meal: Meal; onClose: () => void })
           </div>
         );
       })}
-      {meal.notas && <div className="sub">📝 {meal.notas}</div>}
+      {meal.notas && (
+        <div className="card tight" style={{ whiteSpace: 'pre-wrap', fontSize: '1.05rem' }}>
+          📝 {meal.notas}
+        </div>
+      )}
+      <CookTimer />
       <div className="tiny muted">La pantalla se mantiene encendida mientras estás en este modo (si el móvil lo permite).</div>
+    </div>
+  );
+}
+
+/** Temporizador de cocina: minutos rápidos o a medida; al acabar vibra y pita. */
+function CookTimer() {
+  const [left, setLeft] = useState<number | null>(null); // segundos
+  const [running, setRunning] = useState(false);
+  const [custom, setCustom] = useState('');
+  useEffect(() => {
+    if (!running || left === null) return;
+    if (left <= 0) {
+      setRunning(false);
+      try {
+        navigator.vibrate?.([400, 200, 400, 200, 600]);
+        const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        [0, 0.35, 0.7].forEach((t) => {
+          const o = ctx.createOscillator();
+          o.frequency.value = 880;
+          o.connect(ctx.destination);
+          o.start(ctx.currentTime + t);
+          o.stop(ctx.currentTime + t + 0.2);
+        });
+      } catch {
+        /* sin sonido */
+      }
+      return;
+    }
+    const t = setTimeout(() => setLeft((l) => (l === null ? null : l - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [running, left]);
+  const start = (min: number) => {
+    setLeft(Math.round(min * 60));
+    setRunning(true);
+  };
+  const mm = left !== null ? `${Math.floor(Math.max(0, left) / 60)}:${String(Math.max(0, left) % 60).padStart(2, '0')}` : '';
+  return (
+    <div className="card tight">
+      <div className="row between">
+        <b>⏱️ Temporizador</b>
+        {left !== null && <b style={{ fontSize: '1.6rem', color: left <= 0 ? 'var(--bad)' : undefined }}>{left <= 0 ? '¡Listo!' : mm}</b>}
+      </div>
+      {left === null || left <= 0 ? (
+        <div className="row wrap" style={{ gap: 6 }}>
+          {[1, 3, 5, 8, 10, 15, 20, 30].map((m) => (
+            <button key={m} className="btn small" onClick={() => start(m)}>
+              {m} min
+            </button>
+          ))}
+          <input type="text" inputMode="decimal" placeholder="min" value={custom} onChange={(e) => setCustom(e.target.value)} style={{ width: 64 }} />
+          <button className="btn small primary" disabled={!Number(custom.replace(',', '.'))} onClick={() => start(Number(custom.replace(',', '.')))}>
+            Empezar
+          </button>
+        </div>
+      ) : (
+        <div className="btn-row">
+          <button className="btn small" onClick={() => setRunning(!running)}>
+            {running ? '⏸ Pausa' : '▶ Seguir'}
+          </button>
+          <button className="btn small" onClick={() => setLeft((l) => (l ?? 0) + 60)}>
+            +1 min
+          </button>
+          <button
+            className="btn small danger"
+            onClick={() => {
+              setRunning(false);
+              setLeft(null);
+            }}
+          >
+            Parar
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { Sheet } from './ui';
 const BLOCK: Record<string, string> = { A: 'Desayuno', B: 'Almuerzo', C: 'Cena' };
 
 /** "¿Habéis comido lo planificado?" — confirmar el día (descuenta de la despensa) o ir a corregirlo. */
-export function ConfirmDaySheet({ fecha, onClose, onEdit, onToast }: { fecha: string; onClose: () => void; onEdit: () => void; onToast: (t: string) => void }) {
+export function ConfirmDaySheet({ fecha, onClose, onEdit, onToast }: { fecha: string; onClose: () => void; onEdit: () => void; onToast: Toaster }) {
   const { data, confirmDay } = useStore();
   const day = data.history.find((h) => h.fecha === fecha);
   const meals = dayMeals(day);

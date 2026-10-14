@@ -13,7 +13,7 @@ import { StockItemSheet } from '../components/StockItemSheet';
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
 /** Lo de casa que no sale del plan (limpieza, higiene, bebidas…): lo que falta, toca o está apuntado entra en esta compra. */
-export function OtrosCard({ hasta, onToast }: { hasta: string; onToast: (t: string) => void }) {
+export function OtrosCard({ hasta, onToast }: { hasta: string; onToast: Toaster }) {
   const { data, fm, cm, stockApply } = useStore();
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);

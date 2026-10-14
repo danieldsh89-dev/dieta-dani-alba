@@ -4,7 +4,7 @@ import { BLOCKS, PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
 import { NumberInput, Segmented } from '../components/ui';
 
-export function SettingsScreen({ onToast }: { onToast: (t: string) => void }) {
+export function SettingsScreen({ onToast }: { onToast: Toaster }) {
   const { data, updateSettings } = useStore();
   const s = data.settings;
   const [pid, setPid] = useState<ProfileId>('dani');
@@ -89,7 +89,7 @@ export function SettingsScreen({ onToast }: { onToast: (t: string) => void }) {
   );
 }
 
-function ProfileForm({ profile, onToast }: { profile: Profile; onToast: (t: string) => void }) {
+function ProfileForm({ profile, onToast }: { profile: Profile; onToast: Toaster }) {
   const { saveProfile } = useStore();
   const [p, setP] = useState<Profile>(structuredClone(profile));
   const dirty = JSON.stringify(p) !== JSON.stringify(profile);

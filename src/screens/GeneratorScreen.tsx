@@ -34,7 +34,7 @@ export function GeneratorScreen({
   onUsed,
 }: {
   preset?: GeneratorPreset;
-  onToast: (t: string) => void;
+  onToast: Toaster;
   onUsed: () => void;
 }) {
   const { data, genCtx, fm, cm, placeMeal, setPantry, getDay } = useStore();

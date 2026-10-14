@@ -101,6 +101,9 @@ export function casaItem(nombre: string, hoy: string, over: Partial<StockItem> =
 
 export interface ConsumoMoment {
   t: number;
+  fecha?: string;
+  /** bloque de la comida (sin bloque: extra) */
+  bloque?: Block;
   foodId: string;
   /** en la unidad de stock del alimento */
   cantidad: number;
@@ -130,15 +133,15 @@ export function consumoMoments(
   for (const day of history) {
     if (day.fecha < fromDay || day.fecha > toDay) continue;
     if (soloConfirmado && !day.confirmado) continue;
-    const add = (t: number, foodId: string, base: number, metodoId?: string) => {
+    const add = (t: number, foodId: string, base: number, metodoId?: string, bloque?: Block) => {
       if (t <= fromMs || t > toMs || base <= 0) return;
       const food = fm[foodId];
       if (!food) return;
-      out.push({ t, foodId, cantidad: stockAmountFromBase(food, base, cm, metodoId) });
+      out.push({ t, fecha: day.fecha, bloque, foodId, cantidad: stockAmountFromBase(food, base, cm, metodoId) });
     };
     for (const m of dayMeals(day)) {
       const t = momentOf(day.fecha, BLOCK_HOUR[m.bloque]);
-      for (const it of m.meal.items) add(t, it.foodId, PROFILE_IDS.reduce((s, p) => s + Math.max(0, it.cantidades[p] ?? 0), 0), it.metodoId);
+      for (const it of m.meal.items) add(t, it.foodId, PROFILE_IDS.reduce((s, p) => s + Math.max(0, it.cantidades[p] ?? 0), 0), it.metodoId, m.bloque);
     }
     for (const ex of day.extras ?? []) {
       add(momentOf(day.fecha, EXTRA_HOUR), ex.foodId, PROFILE_IDS.reduce((s, p) => s + Math.max(0, ex.cantidades[p] ?? 0), 0), ex.metodoId);
@@ -626,4 +629,45 @@ export function qtyUnits(it: Pick<StockItem, 'unidad' | 'envase'>, food?: Food, 
   out.push({ id: 'base', label: base, factor: 1, step: it.unidad === 'ud' ? 1 : 50 });
   if (it.unidad !== 'ud') out.push({ id: 'mil', label: it.unidad === 'g' ? 'kg' : 'L', factor: 1000, step: 0.5 });
   return out;
+}
+
+// ───────── ¿falta algo para el plan? ─────────
+
+export interface Shortage {
+  foodId: string;
+  /** primera comida a la que no llega */
+  fecha: string;
+  bloque?: Block;
+  /** lo que falta para esa comida (en la unidad del alimento); 0 = no hay nada */
+  falta: number;
+  /** lo que falta en total para todo el periodo */
+  faltaTotal: number;
+}
+
+/**
+ * Recorre las comidas planificadas desde ahora y avisa de la primera a la que no llega
+ * lo que hay en casa. Solo alimentos con stock conocido (lo "sin dato" no avisa).
+ */
+export function planShortages(d: AppData, fm: FoodMap, cm: ConversionMap, states: Record<string, ItemState>, nowMs = Date.now(), dias = 14): Shortage[] {
+  const moments = consumoMoments(d.history, fm, cm, nowMs, nowMs + dias * 86400000);
+  const out = new Map<string, Shortage>();
+  const left: Record<string, number> = {};
+  for (const it of Object.values(d.stock.items)) {
+    const s = states[it.id];
+    if (!it.foodId || !s || s.fuente === 'desconocido') continue;
+    if (it.tipo === 'estado') left[it.foodId] = s.nivel === 'agotado' ? 0 : Infinity;
+    else if (s.cantidad !== undefined) left[it.foodId] = s.cantidad;
+  }
+  for (const m of moments) {
+    if (!(m.foodId in left)) continue;
+    const tol = Math.max(1, m.cantidad * 0.1); // un 10 % de margen: no avisar por migajas
+    const before = left[m.foodId];
+    left[m.foodId] = before - m.cantidad;
+    if (left[m.foodId] < -tol) {
+      const prev = out.get(m.foodId);
+      if (!prev) out.set(m.foodId, { foodId: m.foodId, fecha: m.fecha!, bloque: m.bloque, falta: r1(Math.min(m.cantidad, -left[m.foodId])), faltaTotal: r1(-left[m.foodId]) });
+      else prev.faltaTotal = r1(-left[m.foodId]);
+    }
+  }
+  return [...out.values()].sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.bloque ?? '').localeCompare(b.bloque ?? ''));
 }

@@ -38,7 +38,7 @@ export function MercaBasketView({
 }: {
   from: string;
   to: string;
-  onToast: (t: string) => void;
+  onToast: Toaster;
   onOpenSettings: () => void;
 }) {
   const { data, fm, cm, setMercaLink, setMercaConfig, stockApply } = useStore();

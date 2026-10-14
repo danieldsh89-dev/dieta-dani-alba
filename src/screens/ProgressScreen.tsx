@@ -7,10 +7,11 @@ import { formatDay } from '../lib/planning';
 import { dayStats, lastDays, movingAverage, summarize, weeklyRate, weeksToGoal, weightSeries } from '../lib/progress';
 import { DailyBars, WeightChart } from '../components/Charts';
 import { NumberInput, Segmented } from '../components/ui';
+import { adherence } from '../lib/adherence';
 
-type View = 'peso' | 'semana';
+type View = 'peso' | 'semana' | 'plan';
 
-export function ProgressScreen({ onToast }: { onToast: (t: string) => void }) {
+export function ProgressScreen({ onToast }: { onToast: Toaster }) {
   const [view, setView] = useState<View>('peso');
   const [pid, setPid] = useState<ProfileId>('dani');
   const { data } = useStore();
@@ -22,16 +23,21 @@ export function ProgressScreen({ onToast }: { onToast: (t: string) => void }) {
         options={[
           { value: 'peso', label: '⚖️ Peso' },
           { value: 'semana', label: '📊 Kcal y proteína' },
+          { value: 'plan', label: '✅ Plan' },
         ]}
         onChange={setView}
       />
-      <Segmented full value={pid} options={PROFILE_IDS.map((p) => ({ value: p, label: data.profiles[p].nombre }))} onChange={setPid} />
-      {view === 'peso' ? <WeightView key={pid} pid={pid} onToast={onToast} /> : <WeekView pid={pid} />}
+      {view !== 'plan' && (
+        <Segmented full value={pid} options={PROFILE_IDS.map((p) => ({ value: p, label: data.profiles[p].nombre }))} onChange={setPid} />
+      )}
+      {view === 'peso' && <WeightView key={pid} pid={pid} onToast={onToast} />}
+      {view === 'semana' && <WeekView pid={pid} />}
+      {view === 'plan' && <AdherenceView />}
     </div>
   );
 }
 
-function WeightView({ pid, onToast }: { pid: ProfileId; onToast: (t: string) => void }) {
+function WeightView({ pid, onToast }: { pid: ProfileId; onToast: Toaster }) {
   const { data, addWeight, removeWeight } = useStore();
   const p = data.profiles[pid];
   const series = useMemo(() => weightSeries(data.pesos, pid), [data.pesos, pid]);
@@ -195,5 +201,57 @@ function WeekView({ pid }: { pid: ProfileId }) {
         </div>
       )}
     </>
+  );
+}
+
+/** Cumplimiento del plan en las últimas 4 semanas */
+function AdherenceView() {
+  const { data } = useStore();
+  const a = adherence(data.history, todayKey(), 4);
+  const peor = (['A', 'B', 'C'] as const)
+    .filter((b) => a.comidasPorBloque[b] > 0)
+    .sort((x, y) => a.libresPorBloque[y] / a.comidasPorBloque[y] - a.libresPorBloque[x] / a.comidasPorBloque[x])[0];
+  const NAMES = { A: 'el desayuno', B: 'el almuerzo', C: 'la cena' } as const;
+  return (
+    <div className="card">
+      <b>✅ Cumplimiento del plan</b>
+      <div className="small">
+        {a.semanas.every((w) => w.comidas === 0) ? (
+          'Aún no hay comidas registradas en las últimas 4 semanas.'
+        ) : (
+          <>
+            En las últimas 4 semanas, <b>{a.seguidas}%</b> de las comidas se hicieron tal cual el plan.
+          </>
+        )}
+        {peor && a.libresPorBloque[peor] > 0 ? ` Donde más se sale del plan: ${NAMES[peor]} (${a.libresPorBloque[peor]} comidas libres).` : ''}
+      </div>
+      <table className="small" style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr className="tiny muted" style={{ textAlign: 'right' }}>
+            <th style={{ textAlign: 'left' }}>Semana</th>
+            <th>Días</th>
+            <th>Confirm.</th>
+            <th>Libres</th>
+            <th>Corregidas</th>
+            <th>Extras</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...a.semanas].reverse().map((w) => (
+            <tr key={w.semana} style={{ textAlign: 'right', borderTop: '1px solid var(--line)' }}>
+              <td style={{ textAlign: 'left' }}>{formatDay(w.semana, { day: 'numeric', month: 'short' })}</td>
+              <td>{w.dias}/7</td>
+              <td>{w.confirmados}</td>
+              <td>{w.libres}</td>
+              <td>{w.corregidas}</td>
+              <td>{w.extras}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="tiny muted">
+        Libres = comidas fuera del plan; corregidas = “lo que comí de verdad” con otras cantidades; confirmados = días con el ✅ de la noche.
+      </div>
+    </div>
   );
 }

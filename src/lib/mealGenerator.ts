@@ -10,6 +10,7 @@
  *     desviación de kcal > falta de proteína > objetivo del modo > raciones "naturales".
  *  4. Puntuar, ordenar y elegir 3-5 opciones diversas (máx. volumen, más proteína, con postre…).
  */
+import { incoherencias } from './coherence';
 import type {
   Block,
   BlockTarget,
@@ -538,7 +539,11 @@ function buildCandidates(req: GeneratorRequest, ctx: Ctx, pool: Pool): Candidate
     const prev = seen.get(sig);
     if (!prev || c.bonus < prev.bonus) seen.set(sig, c);
   }
-  return [...seen.values()];
+  // sentido común: fuera las combinaciones raras (lo que pidió el usuario se respeta)
+  const all = [...seen.values()];
+  const forced = new Set([...req.obligatorios, ...req.opcionales]);
+  const good = all.filter((c) => incoherencias(c.ids, req.bloque, ctx.fm, forced, req.estilo === 'con_postre').length === 0);
+  return good.length ? good : all.map((c) => ({ ...c, bonus: c.bonus + 5 }));
 }
 
 // ───────────────────────── evaluación de conjuntos ─────────────────────────

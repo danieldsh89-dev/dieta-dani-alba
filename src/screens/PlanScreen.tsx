@@ -51,8 +51,11 @@ export function PlanScreen({
   onOpenMercadona,
   onToast,
   focusDate,
+  focusView,
 }: {
   focusDate?: string;
+  /** abrir directamente en una vista (desde el asistente): semana, lista o Mercadona */
+  focusView?: { v: 'semana' | 'lista' | 'mercadona'; n: number };
   onGenerate: (b: Block, fecha: string, para: ProfileId | 'ambos') => void;
   onOpenMercadona: () => void;
   onToast: Toaster;
@@ -61,6 +64,15 @@ export function PlanScreen({
   const today = todayKey();
   const [view, setView] = useRemembered<View>('view', 'semana');
   const [anchor, setAnchor] = useRemembered('anchor', today);
+  useEffect(() => {
+    if (!focusView) return;
+    if (focusView.v === 'semana') setView('semana');
+    else {
+      setView('compra');
+      setCompra(focusView.v);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusView?.n]);
   useEffect(() => {
     if (focusDate) {
       setView('semana');

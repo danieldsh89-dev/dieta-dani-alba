@@ -15,6 +15,10 @@ import { MercadonaScreen } from './screens/MercadonaScreen';
 import { CasaScreen, type CasaView } from './screens/CasaScreen';
 import { ConfirmDaySheet } from './components/ConfirmDaySheet';
 import { GlobalSearch, type SearchTarget } from './components/GlobalSearch';
+import { AsistenteSheet } from './components/AsistenteSheet';
+import { PlanVozSheet } from './components/PlanVozSheet';
+import { GlobalTimer } from './components/GlobalTimer';
+import type { Destino } from './lib/asistente';
 import { onReminderTap, scheduleReminders } from './lib/notify';
 import { todayKey } from './lib/day';
 import { isNative } from './integrations/mercadona/http';
@@ -55,7 +59,24 @@ export default function App() {
   const [casaView, setCasaView] = useState<CasaView | undefined>();
   const [casaKey, setCasaKey] = useState(0);
   const [confirmFecha, setConfirmFecha] = useState<string | null>(null);
-  const [search, setSearch] = useState(false);
+  const [search, setSearch] = useState<string | false>(false);
+  const [asistente, setAsistente] = useState<{ listen: boolean } | null>(null);
+  const [planVoz, setPlanVoz] = useState<string | null>(null);
+  const [timerEnd, setTimerEnd] = useState<number | null>(null);
+  const [planView, setPlanView] = useState<{ v: 'semana' | 'lista' | 'mercadona'; n: number } | undefined>();
+  const goDestino = (dst: Destino) => {
+    window.scrollTo(0, 0);
+    if (dst === 'hoy') return setTab('inicio');
+    if (dst === 'plan' || dst === 'compra' || dst === 'mercadona') {
+      setPlanView({ v: dst === 'plan' ? 'semana' : dst === 'compra' ? 'lista' : 'mercadona', n: Date.now() });
+      return setTab('plan');
+    }
+    if (dst === 'casa' || dst === 'revision') return openCasa(dst === 'casa' ? 'stock' : 'revisar');
+    if (dst === 'favoritos') return setTab('favoritos');
+    if (dst === 'generar') return setTab('generar');
+    setTab('mas');
+    setMore(dst === 'progreso' ? 'progreso' : 'alimentos');
+  };
   const [jump, setJump] = useState<{ fav?: string; food?: string; item?: string; fecha?: string; n: number }>({ n: 0 });
   const goSearch = (t: SearchTarget) => {
     const n = jump.n + 1;
@@ -129,7 +150,7 @@ export default function App() {
     let h: { remove: () => void } | undefined;
     if (isNative()) {
       CapApp.addListener('appUrlOpen', ({ url }) => {
-        if (url.includes('voz') || url.includes('apuntar')) openCasa('voz' as CasaView);
+        if (url.includes('voz') || url.includes('apuntar')) setAsistente({ listen: true });
         else if (url.includes('casa')) openCasa('stock');
       }).then((x) => (h = x));
     }
@@ -210,7 +231,10 @@ export default function App() {
               {SYNC_ICON[syncStatus]}
             </button>
           )}
-          <button className="iconbtn" style={{ border: 'none', background: 'none' }} title="Buscar" aria-label="Buscar" onClick={() => setSearch(true)}>
+          <button className="iconbtn" style={{ border: 'none', background: 'none' }} title="Asistente de voz" aria-label="Asistente de voz" onClick={() => setAsistente({ listen: true })}>
+            🎤
+          </button>
+          <button className="iconbtn" style={{ border: 'none', background: 'none' }} title="Buscar" aria-label="Buscar" onClick={() => setSearch('')}>
             🔎
           </button>
           <WeightToggle />
@@ -229,6 +253,7 @@ export default function App() {
       )}
       {tab === 'plan' && <PlanScreen
           focusDate={jump.fecha}
+          focusView={planView}
           onGenerate={goGenerate}
           onOpenMercadona={() => {
             setTab('mas');
@@ -298,7 +323,31 @@ export default function App() {
           onToast={showToast}
         />
       )}
-      {search && <GlobalSearch onClose={() => setSearch(false)} onGo={goSearch} />}
+      {search !== false && <GlobalSearch initial={search} onClose={() => setSearch(false)} onGo={goSearch} />}
+      {asistente && (
+        <AsistenteSheet
+          autoListen={asistente.listen}
+          onClose={() => setAsistente(null)}
+          onToast={showToast}
+          onGo={goDestino}
+          onSearch={(q) => setSearch(q)}
+          onPlan={(t) => setPlanVoz(t)}
+          onTimer={(m) => setTimerEnd(Date.now() + m * 60000)}
+        />
+      )}
+      {planVoz !== null && (
+        <PlanVozSheet
+          inicial={planVoz}
+          onClose={() => setPlanVoz(null)}
+          onToast={showToast}
+          onAdded={(f) => {
+            if (f[0]) setJump({ fecha: f[0], n: jump.n + 1 });
+            setPlanView({ v: 'semana', n: Date.now() });
+            setTab('plan');
+          }}
+        />
+      )}
+      {timerEnd && <GlobalTimer end={timerEnd} onDone={() => setTimerEnd(null)} />}
       {toast && <Toast text={toast.text} undo={toast.undo} onDone={clearToast} />}
     </div>
   );

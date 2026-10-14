@@ -309,3 +309,10 @@ Plan → Semana → **🎤 Plan por voz** (o Generar → **🎤 Pedir por voz**)
 4. Se **aceptan** días enteros o comidas sueltas (🔄 propone otra para un hueco); con ↺ Deshacer.
 
 Código: `src/lib/planVoz.ts` (intérprete + generador del plan), `src/components/PlanVozSheet.tsx`; tests en `src/lib/__tests__/planVoz.test.ts`.
+
+## Novedades v1.8 — Sentido común y asistente de voz
+
+- **Sentido común en el generador** (`src/lib/coherence.ts`): nunca añade algo dulce, fruta, yogur, lácteos de desayuno o proteína en polvo a un plato salado de comida/cena; ni dulce con salado en el desayuno (pollo con frutos rojos); ni dos proteínas o dos hidratos principales; ni hidratos de comida en el desayuno. Lo que se pide expresamente se respeta (arroz con plátano pedido a propósito) y el estilo "con postre" permite postre.
+- **🎤 Asistente** (arriba en todas las pantallas, y el acceso directo del icono): una frase y la app lo hace. Planes y comidas por voz; "hoy he comido el B1", "pon pollo con papas en la cena de mañana"; "cambia las papas por arroz en la comida"; "cenamos fuera, unas 900 calorías"; "me he tomado un plátano de extra"; "peso 78,5"; "hemos comido lo planificado"; "repite lo de ayer", "copia hoy a mañana"; "quita la cena de mañana"; "abre la despensa / la compra / el carrito…"; "busca albóndigas"; "temporizador de 10 minutos"; y todo lo de la despensa. Lo que cambia el plan se enseña antes y tiene ↺ Deshacer.
+
+Código: `src/lib/asistente.ts` (intérprete de órdenes), `src/components/AsistenteSheet.tsx`, `src/components/GlobalTimer.tsx`.

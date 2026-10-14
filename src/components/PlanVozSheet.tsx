@@ -40,11 +40,11 @@ export function PlanVozSheet({
   const { data, genCtx, activeFoods, placeMeal, getDay, setDaySlot, setPersonSlot } = useStore();
   const enCasa = useEnCasa();
   const hoy = todayKey();
-  const [step, setStep] = useState<Step>('decir');
+  const [step, setStep] = useState<Step>(inicial ? 'idea' : 'decir');
   const [texto, setTexto] = useState(inicial ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [idea, setIdea] = useState<PlanIdea | null>(null);
+  const [idea, setIdea] = useState<PlanIdea | null>(() => (inicial ? parsePlanVoz(inicial, activeFoods, data.profiles, hoy) : null));
   const [slots, setSlots] = useState<PlanSlot[]>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<string | null>(null);

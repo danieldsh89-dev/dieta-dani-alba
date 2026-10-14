@@ -961,3 +961,16 @@ textarea:focus {
   font-weight: 700;
   font-size: 0.78rem;
 }
+.timer-pill {
+  position: fixed;
+  right: 12px;
+  bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom));
+  z-index: 55;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+}

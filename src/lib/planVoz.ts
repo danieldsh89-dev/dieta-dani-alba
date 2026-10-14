@@ -125,13 +125,13 @@ const BLOCK_WORDS: [RegExp, Block][] = [
   [/\b(cenas?|cenar)\b/, 'C'],
 ];
 
-interface Found {
+export interface Found {
   pos: number;
   end: number;
   item: PlanItem;
 }
 
-function findFoods(text: string, foods: Food[]): Found[] {
+export function findFoods(text: string, foods: Food[]): Found[] {
   const out: Found[] = [];
   let t = text;
   for (const c of CONCEPTS) {

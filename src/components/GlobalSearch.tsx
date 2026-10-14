@@ -16,10 +16,10 @@ export type SearchTarget =
   | { kind: 'plan'; fecha: string };
 
 /** Buscar en toda la app: favoritos, alimentos, lo que hay en casa y las comidas planificadas. */
-export function GlobalSearch({ onClose, onGo }: { onClose: () => void; onGo: (t: SearchTarget) => void }) {
+export function GlobalSearch({ onClose, onGo, initial }: { onClose: () => void; onGo: (t: SearchTarget) => void; initial?: string }) {
   const { data, activeFoods } = useStore();
   const states = useStockStates();
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initial ?? '');
   const n = normalize(q).trim();
   const words = n.split(/\s+/).filter(Boolean);
   const has = (text: string) => words.every((w) => normalize(text).includes(w));

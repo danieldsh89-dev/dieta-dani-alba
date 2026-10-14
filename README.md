@@ -298,3 +298,14 @@ Cada producto de casa tiene modo al acabarse: **🔁 habitual** (entra solo en l
 - **Progreso → ✅ Plan**: cumplimiento de las últimas 4 semanas.
 
 Código nuevo: `src/lib/mealInfo.ts` (iconos, coste, orden, secciones), `src/lib/variants.ts`, `src/lib/adherence.ts`, `src/lib/useStock.ts`, `src/components/VariantSheet.tsx`, `src/components/GlobalSearch.tsx`.
+
+## Novedades v1.7 — Planes por voz
+
+Plan → Semana → **🎤 Plan por voz** (o Generar → **🎤 Pedir por voz**). Se dice la idea y la app:
+
+1. **Interpreta** (reglas, gratis y sin conexión): fechas ("la semana que viene", "de lunes a viernes", "mañana"), comidas (desayunos/comidas/cenas), alimentos ("arroz, pollo, carne de vaca", "tostadas", "frutos rojos", "yogur", "pescado"…), para quién ("para Dani", "para Alba"), cada cuánto ("algunos días", "principalmente", "todos los días"), "variado" y exclusiones ("sin pescado").
+2. Muestra **lo que ha entendido** para corregirlo: días, comidas, alimentos por bloque y persona (tocar cambia la frecuencia, ✕ quita), favoritos sí/no, no tocar lo ya planificado.
+3. **Propone** cada hueco: un favorito que ya lleve lo pedido (sin repetir) o una comida del generador con lo pedido como obligatorio; las proteínas e hidratos se turnan entre días y entre comida y cena.
+4. Se **aceptan** días enteros o comidas sueltas (🔄 propone otra para un hueco); con ↺ Deshacer.
+
+Código: `src/lib/planVoz.ts` (intérprete + generador del plan), `src/components/PlanVozSheet.tsx`; tests en `src/lib/__tests__/planVoz.test.ts`.

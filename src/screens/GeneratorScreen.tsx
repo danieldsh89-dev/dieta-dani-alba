@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { PlanVozSheet } from '../components/PlanVozSheet';
 import { caducanPronto, computeStock } from '../lib/stock';
 import type { Block, Meal, ProfileId } from '../types';
 import { BLOCKS, PROFILE_IDS } from '../types';
@@ -51,6 +52,7 @@ export function GeneratorScreen({
   const defaultPara = (b: Block): Para =>
     preset?.para ?? (data.settings.bloquesSeparados?.includes(b) ? data.settings.yoSoy ?? 'dani' : 'ambos');
   const [para, setPara] = useState<Para>(defaultPara(preset?.bloque ?? 'B'));
+  const [voz, setVoz] = useState(false);
   const [opciones, setOpciones] = useState<GeneratedOption[] | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
   const [shown, setShown] = useState<string[]>([]);
@@ -132,6 +134,10 @@ export function GeneratorScreen({
 
   return (
     <div className="screen">
+      <button className="btn soft" onClick={() => setVoz(true)}>
+        🎤 Pedir por voz <span className="tiny muted">— “una cena con atún y ensalada para mañana”</span>
+      </button>
+      {voz && <PlanVozSheet onClose={() => setVoz(false)} onToast={onToast} />}
       <Segmented
         full
         value={modo}

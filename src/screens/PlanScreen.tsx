@@ -25,6 +25,7 @@ import { FavoritePickSheet, FreeMealSheet } from './HomeScreen';
 import { shareText } from './SyncScreen';
 import { MercaBasketView } from './MercaBasket';
 import { VariantSheet } from '../components/VariantSheet';
+import { PlanVozSheet } from '../components/PlanVozSheet';
 import { dayCost, useShortages } from '../lib/useStock';
 import { eur, sectionFor, SECTIONS } from '../lib/mealInfo';
 import { ev, foodItem } from '../lib/stock';
@@ -146,6 +147,7 @@ function WeekView({
   const [slot, setSlot] = useState<SlotTarget | null>(null);
   const [copyFrom, setCopyFrom] = useState<string | null>(null);
   const [saveTpl, setSaveTpl] = useState(false);
+  const [voz, setVoz] = useState(false);
   const [applyTpl, setApplyTpl] = useState(false);
   const todayRef = useRef<HTMLDivElement>(null);
   const separados = data.settings.bloquesSeparados ?? [];
@@ -190,6 +192,9 @@ function WeekView({
           ›
         </button>
       </div>
+      <button className="btn soft" onClick={() => setVoz(true)}>
+        🎤 Plan por voz <span className="tiny muted">— “semana que viene con arroz, pollo…”</span>
+      </button>
       <div className="btn-row">
         <button className="btn small" onClick={copyPrevWeek}>
           ⧉ Copiar semana anterior
@@ -367,6 +372,7 @@ function WeekView({
           }}
         />
       )}
+      {voz && <PlanVozSheet onClose={() => setVoz(false)} onToast={onToast} onAdded={(f) => f[0] && setAnchor(f[0])} />}
       {applyTpl && <WeekTemplatesSheet weekStart={dates[0]} onClose={() => setApplyTpl(false)} onToast={onToast} />}
       {data.history.length === 0 && <div className="empty">Toca un bloque para planificar la semana.</div>}
     </>

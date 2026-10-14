@@ -24,7 +24,7 @@ export interface VozRef {
 }
 
 /** Cómo se llaman en voz los alimentos de la base (además de su nombre) */
-const FOOD_ALIASES: Record<string, string[]> = {
+export const FOOD_ALIASES: Record<string, string[]> = {
   papa_fresca: ['patatas', 'papas', 'patata', 'papa'],
   papa_bote: ['papas de bote', 'patatas de bote', 'papas cocidas', 'patatas cocidas'],
   pollo_pechuga: ['pollo', 'pechugas de pollo', 'pechuga'],

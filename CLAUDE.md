@@ -34,7 +34,7 @@ React 18 + TypeScript + Vite 5, vite-plugin-pwa, vitest. Capacitor 6 (APK): `@ca
 - Voz: reglas (gratis, sin IA, sin conexión). Lo que cambia plan/diario se confirma antes y tiene ↺ Deshacer.
 
 ## Estado y pendientes (2026-10-15)
-- Última versión: 1.10.0: Casa es la sección de despensa y compra (Inicio, Despensa, Lista unificada en `lib/compra.ts`, Carrito, Gasto; la cuenta de Mercadona cuelga de Casa, ya no de Más; Plan solo Semana y Cocinar). 1.9.0 = rediseño premium (Geist + Fraunces en `src/assets/fonts`, iconos en `components/icons.tsx`, tokens en `styles.css`). **1.8.2 a 1.10.0 sin publicar en GitHub** (v1.8.1 es la última release).
+- Última versión: 1.10.0: Casa es la sección de despensa y compra (Inicio, Despensa, Lista unificada en `lib/compra.ts`, Carrito, Gasto; la cuenta de Mercadona cuelga de Casa, ya no de Más; Plan solo Semana y Cocinar). 1.9.0 = rediseño premium (Geist + Fraunces en `src/assets/fonts`, iconos en `components/icons.tsx`, tokens en `styles.css`). Publicada en GitHub como release v1.10.0 (la 1.9.0 no tuvo release propia; sus cambios van en la 1.10.0) y desplegada en la web.
 - Versión de prueba instalable junto a la normal: `npm run apk:nuevo` (app "D&A Nuevo", applicationId `.nuevo`, datos separados). Útil para que el usuario pruebe cambios grandes sin tocar su app.
 - Guía de uso (documento compartible): https://claude.ai/code/artifact/7e156ca0-6773-4a8a-8d33-cef32fc4da3d — actualizada hasta 1.8.1 (falta: repetir comidas varios días, hidrato distinto comida/cena).
 - Despensa antigua (Telegram + Supabase aparte): bot desconectado; faltan por hacer al usuario pausar su proyecto Supabase, borrar el activador del script de Gmail y el conector de claude.ai.

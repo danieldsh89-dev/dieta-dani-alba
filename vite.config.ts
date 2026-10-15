@@ -15,8 +15,8 @@ export default defineConfig({
         short_name: 'Dieta D&A',
         description: 'Generador de comidas A/B/C para Dani y Alba',
         lang: 'es',
-        theme_color: '#2f7d5b',
-        background_color: '#f6f7f4',
+        theme_color: '#2e6a4e',
+        background_color: '#f4f1ea',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '.',
@@ -29,7 +29,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}']
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,woff2}']
       }
     })
   ],

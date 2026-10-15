@@ -3,6 +3,7 @@ import type { BlockTarget, Food, Nutrients, ProfileId } from '../types';
 import { rangeStatus, round, type RangeStatus } from '../lib/nutrition';
 import { useStore } from '../store/AppStore';
 import { useBackHandler } from '../lib/back';
+import { Icon } from './icons';
 
 let openSheets = 0;
 
@@ -34,7 +35,7 @@ export function Sheet({ title, onClose, children, actions }: { title: string; on
           <div className="row">
             {actions}
             <button className="iconbtn" onClick={onClose} aria-label="Cerrar">
-              ✕
+              <Icon name="close" size={18} />
             </button>
           </div>
         </div>
@@ -69,15 +70,22 @@ export function Segmented<T extends string>({
 /** Toggle global MOSTRAR PESOS [CRUDOS] [COCINADOS] */
 export function WeightToggle() {
   const { data, updateSettings } = useStore();
+  const v = data.settings.mostrarPesos;
+  const next = v === 'crudo' ? 'cocinado' : 'crudo';
   return (
-    <Segmented
-      value={data.settings.mostrarPesos}
-      options={[
-        { value: 'crudo', label: 'Crudos' },
-        { value: 'cocinado', label: 'Cocinados' },
-      ]}
-      onChange={(v) => updateSettings({ mostrarPesos: v })}
-    />
+    <button
+      type="button"
+      className={`weight-toggle ${v}`}
+      onClick={() => updateSettings({ mostrarPesos: next })}
+      title={`Mostrando pesos en ${v}. Toca para verlos en ${next}.`}
+      aria-label={`Pesos en ${v}. Cambiar a ${next}`}
+    >
+      <span className="wt-k">pesos</span>
+      <span className="wt-v">
+        <i aria-hidden="true" />
+        {v === 'crudo' ? 'crudo' : 'cocinado'}
+      </span>
+    </button>
   );
 }
 
@@ -255,7 +263,7 @@ export function Toast({ text, undo, onDone }: { text: string; undo?: () => void;
     return () => clearTimeout(t);
   }, [text, undo, onDone]);
   return (
-    <div className="toast row" style={{ gap: 12, alignItems: 'center' }}>
+    <div className="toast row" role="status" style={{ gap: 12, alignItems: 'center' }}>
       <span>{text}</span>
       {undo && (
         <button

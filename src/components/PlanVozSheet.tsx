@@ -158,7 +158,7 @@ export function PlanVozSheet({
         </button>
         <div className="tiny muted">Ejemplos (tócalos para probar):</div>
         {EJEMPLOS.map((e) => (
-          <button key={e} className="btn small" style={{ textAlign: 'left', whiteSpace: 'normal' }} onClick={() => (setTexto(e), interpretar(e))}>
+          <button key={e} className="suggestion" onClick={() => (setTexto(e), interpretar(e))}>
             “{e}”
           </button>
         ))}

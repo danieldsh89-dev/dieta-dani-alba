@@ -31,6 +31,7 @@ import { eur } from '../lib/mealInfo';
 import { filterFavorites } from '../lib/favorites';
 import { normalize } from '../components/FoodPicker';
 import { dayMeals } from '../lib/day';
+import { Icon } from '../components/icons';
 
 const BLOCK_NAMES: Record<Block, string> = {
   A: 'Desayuno / preentreno',
@@ -103,21 +104,18 @@ export function HomeScreen({
 
   /** Botonera de una comida ya puesta */
   const MealActions = ({ t }: { t: Target }) => (
-    <div className="btn-row">
+    <div className="meal-actions">
       <button className="btn small soft" onClick={() => setEditFor(t)}>
         Ver / editar
       </button>
       <button className="btn small" onClick={() => setCookFor(t)}>
-        👨‍🍳 Cocinar
+        <Icon name="pot" size={17} /> Cocinar
       </button>
       <button className="btn small" onClick={() => onGenerate(t.b, t.pid ?? 'ambos')}>
-        Cambiar
+        <Icon name="generar" size={16} /> Cambiar
       </button>
       <button className="btn small" title="Cambiar solo el hidrato, la proteína…" onClick={() => setVariantFor(t)}>
-        🔁 Variante
-      </button>
-      <button className="btn small" aria-label="Más opciones" onClick={() => setMenuFor(t)}>
-        ⋯
+        <Icon name="sync" size={16} /> Variante
       </button>
     </div>
   );
@@ -128,10 +126,10 @@ export function HomeScreen({
     return (
       <div className="btn-row">
         <button className="btn primary small" onClick={() => onGenerate(t.b, t.pid ?? 'ambos')}>
-          ⚙️ Generar
+          <Icon name="generar" size={17} /> Generar
         </button>
         <button className="btn small" onClick={() => setFavFor(t)}>
-          ★ Favoritos
+          <Icon name="favoritos" size={17} /> Favoritos
         </button>
         {ayerSlot && (
           <button
@@ -182,9 +180,14 @@ export function HomeScreen({
       </>
     ) : (
       <>
-        <b style={{ fontSize: '0.95rem' }}>
-          {slot.meal.nombre} {slot.meal.ajustadoReal && <span className="badge ok">✍️ real</span>}
-        </b>
+        <div className="meal-title-row">
+          <div className="meal-title">
+            {slot.meal.nombre} {slot.meal.ajustadoReal && <span className="badge ok">✍️ real</span>}
+          </div>
+          <button className="iconbtn" aria-label="Más opciones" title="Más opciones" onClick={() => setMenuFor(t)}>
+            ⋯
+          </button>
+        </div>
         <div className="small">
           {(t.pid ? [t.pid] : PROFILE_IDS).map((p) => {
             const n = slotNutrients(slot, p, fm);
@@ -219,63 +222,77 @@ export function HomeScreen({
           </span>
         </div>
       )}
-      <div className="row between">
+      <header className="page-head">
         <div>
-          <h2 style={{ fontSize: '1.3rem' }}>Hoy</h2>
+          <h2>Hoy</h2>
           <div className="sub">{dateText}</div>
         </div>
         <button className="btn small" onClick={onProgress}>
-          📈 Progreso
+          <Icon name="trend" size={17} /> Progreso
         </button>
-      </div>
+      </header>
 
-      <div className="card">
-        {PROFILE_IDS.map((pid) => {
-          const p = data.profiles[pid];
-          const g = dayGoals(p, fecha, day);
-          const t = totals[pid];
-          return (
-            <div key={pid} className="col" style={{ gap: 4 }}>
-              <div className="row between small">
-                <span className="row" style={{ gap: 6 }}>
-                  <b className={pid}>{p.nombre}</b>
+      <section className="card day-hero" aria-label="Resumen del día">
+        <div className="day-people">
+          {PROFILE_IDS.map((pid) => {
+            const p = data.profiles[pid];
+            const g = dayGoals(p, fecha, day);
+            const t = totals[pid];
+            return (
+              <div key={pid} className="person">
+                <div className="person-name">
+                  <span className={pid}>{p.nombre}</span>
                   {p.entreno?.activo && (
                     <button
                       className={`badge ${g.entreno ? 'ok' : 'info'}`}
-                      style={{ border: 'none', cursor: 'pointer' }}
                       title="Toca para cambiar el tipo de día"
                       onClick={() => setDayTraining(pid, !g.entreno, fecha)}
                     >
                       {g.entreno ? '🏋️ entreno' : '😴 descanso'}
                     </button>
                   )}
-                </span>
-                <span>
-                  <b>{round(t.kcal)}</b> / {g.kcalDia} kcal · P <b>{round(t.proteina)}</b>/{g.proteinaDia} g
-                </span>
+                </div>
+                <KcalRing pid={pid} value={t.kcal} max={g.kcalDia} />
+                <div className="person-stats">
+                  <div className="stat-line">
+                    <span>Proteína</span>
+                    <span>
+                      <b>{round(t.proteina)}</b> / {g.proteinaDia} g
+                    </span>
+                  </div>
+                  <Progress value={t.proteina} max={g.proteinaDia} />
+                  <div className="stat-line">
+                    <span>HC {round(t.carbohidratos)} g</span>
+                    <span>G {round(t.grasas)} g</span>
+                  </div>
+                  {data.settings.mostrarFibraSal && (
+                    <div className="stat-line">
+                      <span>Fibra {round(t.fibra, 1)} g</span>
+                      <span>Sal {round(t.sal, 1)} g</span>
+                    </div>
+                  )}
+                  {t.kcal > 0 && <MacroBar n={t} height={5} />}
+                </div>
               </div>
-              <Progress value={t.kcal} max={g.kcalDia} who={pid} />
-              <Progress value={t.proteina} max={g.proteinaDia} />
+            );
+          })}
+        </div>
+        {(cost.total > 0 || hasFree) && (
+          <div className="day-foot">
+            {cost.total > 0 && (
               <div className="tiny muted">
-                HC {round(t.carbohidratos)} g · G {round(t.grasas)} g
-                {data.settings.mostrarFibraSal && ` · Fibra ${round(t.fibra, 1)} g · Sal ${round(t.sal, 1)} g`}
+                💶 Hoy ≈ {eur(cost.total)} ({PROFILE_IDS.map((p) => `${data.profiles[p].nombre} ${eur(cost.porPersona[p])}`).join(' · ')})
               </div>
-              {t.kcal > 0 && <MacroBar n={t} height={6} />}
-            </div>
-          );
-        })}
-        {cost.total > 0 && (
-          <div className="tiny muted">
-            💶 Hoy ≈ {eur(cost.total)} ({PROFILE_IDS.map((p) => `${data.profiles[p].nombre} ${eur(cost.porPersona[p])}`).join(' · ')})
+            )}
+            {hasFree && (
+              <label className="check small">
+                <input type="checkbox" checked={!!day?.compensar} onChange={(e) => setCompensar(e.target.checked)} />
+                Compensar la comida libre en el resto de bloques de hoy
+              </label>
+            )}
           </div>
         )}
-        {hasFree && (
-          <label className="check small">
-            <input type="checkbox" checked={!!day?.compensar} onChange={(e) => setCompensar(e.target.checked)} />
-            Compensar la comida libre en el resto de bloques de hoy
-          </label>
-        )}
-      </div>
+      </section>
 
       {(ayerParaHoy.length > 0 || hoyParaManana.length > 0) && (
         <div className="btn-row">
@@ -312,26 +329,30 @@ export function HomeScreen({
         const split = isSplit(day, b) || (!blockHasContent(day, b) && separados.includes(b));
         const shared = !split ? day?.bloques[b] : undefined;
         return (
-          <div key={b} className="card block-card">
-            <div className="block-letter">{b}</div>
-            <div className="col" style={{ minWidth: 0 }}>
-              <div className="row between">
-                <span className="sub">
-                  {BLOCK_NAMES[b]}{' '}
-                  {faltasHoy.some((x) => x.t.b === b) && (
-                    <span role="button" title="Puede faltar algo en casa" style={{ cursor: 'pointer' }} onClick={() => setWarnB(b)}>
-                      ⚠️
-                    </span>
-                  )}
-                </span>
-                <span className="tiny muted">
-                  <span className="dani">{targets.dani.kcal}</span> / <span className="alba">{targets.alba.kcal}</span> kcal
-                </span>
+          <section key={b} className="card block-card" aria-label={`Bloque ${b}: ${BLOCK_NAMES[b]}`}>
+            <div className="block-head">
+              <div className="block-letter" aria-hidden="true">
+                {b}
               </div>
+              <div className="grow">
+                <div className="block-name">
+                  {BLOCK_NAMES[b]}
+                  {faltasHoy.some((x) => x.t.b === b) && (
+                    <button className="warn-dot" title="Puede faltar algo en casa" onClick={() => setWarnB(b)}>
+                      ⚠️ falta algo
+                    </button>
+                  )}
+                </div>
+                <div className="tiny muted">
+                  Objetivo <span className="dani">{targets.dani.kcal}</span> · <span className="alba">{targets.alba.kcal}</span> kcal
+                </div>
+              </div>
+            </div>
+            <div className="block-body">
               {!split && !shared && (
                 <>
                   <EmptyActions t={{ b }} />
-                  <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => splitBlock(b, fecha)}>
+                  <button className="btn small link" style={{ alignSelf: 'flex-start' }} onClick={() => splitBlock(b, fecha)}>
                     ✂️ Cada uno lo suyo
                   </button>
                 </>
@@ -349,7 +370,7 @@ export function HomeScreen({
                     );
                   })}
                   <button
-                    className="btn small"
+                    className="btn small link"
                     style={{ alignSelf: 'flex-start' }}
                     onClick={() => {
                       if (isSplit(day, b)) joinBlock(b, fecha);
@@ -362,15 +383,15 @@ export function HomeScreen({
                 </>
               )}
             </div>
-          </div>
+          </section>
         );
       })}
 
       <div className="card">
         <div className="row between">
-          <b>🍌 Extras de hoy</b>
+          <h3 className="block-name">🍌 Extras de hoy</h3>
           <button className="btn small" onClick={() => setExtra(true)}>
-            ＋ Añadir
+            <Icon name="plus" size={16} /> Añadir
           </button>
         </div>
         {(day?.extras ?? []).length === 0 && <div className="tiny muted">¿Algo fuera del plan? Apúntalo aquí y cuenta en el día.</div>}
@@ -392,7 +413,7 @@ export function HomeScreen({
                 removeExtra(e.id, fecha);
                 onToast('Extra quitado', () => addExtra(e, fecha));
               }}>
-                ✕
+                <Icon name="close" size={16} />
               </button>
             </div>
           );
@@ -540,6 +561,39 @@ export function HomeScreen({
             />
           );
         })()}
+    </div>
+  );
+}
+
+/** Anillo de kcal del día de una persona */
+function KcalRing({ pid, value, max }: { pid: ProfileId; value: number; max: number }) {
+  const r = 46;
+  const c = 2 * Math.PI * r;
+  const pct = max > 0 ? Math.min(1, value / max) : 0;
+  const over = value > max * 1.05;
+  const left = Math.round(max - value);
+  return (
+    <div className={`ring ${pid} ${over ? 'over' : ''}`} role="img" aria-label={`${round(value)} de ${max} kcal`}>
+      <svg viewBox="0 0 108 108">
+        <circle className="track" cx="54" cy="54" r={r} fill="none" strokeWidth="8" />
+        <circle
+          className="bar"
+          cx="54"
+          cy="54"
+          r={r}
+          fill="none"
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - pct)}
+          opacity={pct > 0 ? 1 : 0}
+        />
+      </svg>
+      <div className="ring-center">
+        <span className="big">{round(value)}</span>
+        <span className="of">de {max} kcal</span>
+      </div>
+      <div className="ring-left">{left >= 0 ? `quedan ${left}` : `+${-left} de más`}</div>
     </div>
   );
 }

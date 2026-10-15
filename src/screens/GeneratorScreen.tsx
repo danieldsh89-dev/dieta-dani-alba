@@ -12,6 +12,7 @@ import { formatDay } from '../lib/planning';
 import { recentMeals } from '../lib/recent';
 import { FoodSelector } from '../components/FoodPicker';
 import { OptionCard } from '../components/OptionCard';
+import { Icon } from '../components/icons';
 import { Segmented, Warnings } from '../components/ui';
 
 const BLOCK_DESC: Record<Block, string> = {
@@ -148,15 +149,22 @@ export function GeneratorScreen({
 
   return (
     <div className="screen">
-      <button className="btn soft" onClick={() => setVoz(true)}>
-        🎤 Pedir por voz <span className="tiny muted">— “una cena con atún y ensalada para mañana”</span>
+      <button className="voice-cta" onClick={() => setVoz(true)}>
+        <span className="voice-cta-ico">
+          <Icon name="mic" size={20} />
+        </span>
+        <span className="grow">
+          <span className="voice-cta-t">Pedir por voz</span>
+          <span className="voice-cta-s">“una cena con atún y ensalada para mañana”</span>
+        </span>
+        <Icon name="chevron" size={18} className="muted" />
       </button>
       {voz && <PlanVozSheet onClose={() => setVoz(false)} onToast={onToast} />}
       <Segmented
         full
         value={modo}
         options={[
-          { value: 'generador', label: '⚙️ Generador' },
+          { value: 'generador', label: '✦ Generador' },
           { value: 'casa', label: '🏠 Tengo esto en casa' },
         ]}
         onChange={(v) => {
@@ -302,7 +310,7 @@ export function GeneratorScreen({
         )}
         {!data.settings.mismaRecetaParaAmbos && <Warnings items={['“Misma receta para ambos” está desactivado: cada uno recibirá su propio plato.']} />}
         <button className="btn primary block" onClick={() => run([])} disabled={casa && disponibles.length === 0}>
-          {casa ? '🍳 Crear comida' : '⚙️ Generar opciones'}
+          {casa ? '🍳 Crear comida' : <><Icon name="generar" size={18} /> Generar opciones</>}
         </button>
       </div>
 

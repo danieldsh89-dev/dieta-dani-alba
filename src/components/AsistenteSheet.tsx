@@ -340,7 +340,7 @@ export function AsistenteSheet({
         <>
           <div className="tiny muted">Puedes decir, por ejemplo (toca para probar):</div>
           {EJEMPLOS.map((e) => (
-            <button key={e} className="btn small" style={{ textAlign: 'left', whiteSpace: 'normal' }} onClick={() => run(e)}>
+            <button key={e} className="suggestion" onClick={() => run(e)}>
               “{e}”
             </button>
           ))}

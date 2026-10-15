@@ -18,6 +18,7 @@ import { GlobalSearch, type SearchTarget } from './components/GlobalSearch';
 import { AsistenteSheet } from './components/AsistenteSheet';
 import { PlanVozSheet } from './components/PlanVozSheet';
 import { GlobalTimer } from './components/GlobalTimer';
+import { Icon, type IconName } from './components/icons';
 import type { Destino } from './lib/asistente';
 import { onReminderTap, scheduleReminders } from './lib/notify';
 import { todayKey } from './lib/day';
@@ -31,28 +32,38 @@ import { useBackHandler } from './lib/back';
 type Tab = 'inicio' | 'plan' | 'generar' | 'casa' | 'favoritos' | 'mas';
 type MoreView = 'menu' | 'alimentos' | 'progreso' | 'mercadona' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
 
-const TABS: { id: Tab; label: string; ico: string }[] = [
-  { id: 'inicio', label: 'Hoy', ico: '🏠' },
-  { id: 'plan', label: 'Plan', ico: '📅' },
-  { id: 'generar', label: 'Generar', ico: '⚙️' },
-  { id: 'casa', label: 'Casa', ico: '🧺' },
-  { id: 'favoritos', label: 'Favoritos', ico: '★' },
-  { id: 'mas', label: 'Más', ico: '☰' },
+const TABS: { id: Tab; label: string; ico: IconName }[] = [
+  { id: 'inicio', label: 'Hoy', ico: 'hoy' },
+  { id: 'plan', label: 'Plan', ico: 'plan' },
+  { id: 'generar', label: 'Generar', ico: 'generar' },
+  { id: 'casa', label: 'Casa', ico: 'casa' },
+  { id: 'favoritos', label: 'Favoritos', ico: 'favoritos' },
+  { id: 'mas', label: 'Más', ico: 'mas' },
 ];
 
-const MORE_ITEMS: { id: Exclude<MoreView, 'menu'>; ico: string; title: string; sub: string }[] = [
-  { id: 'alimentos', ico: '🥕', title: 'Alimentos', sub: 'Base de alimentos: valores, raciones, escáner de códigos' },
-  { id: 'progreso', ico: '📈', title: 'Progreso', sub: 'Peso, tendencia y gráficas semanales de kcal y proteína' },
-  { id: 'mercadona', ico: '🛒', title: 'Mercadona', sub: 'Cuenta, entrega, productos vinculados y diagnóstico' },
-  { id: 'sync', ico: '☁️', title: 'Sincronizar', sub: 'Compartir datos entre los móviles de Dani y Alba' },
-  { id: 'config', ico: '👥', title: 'Configuración', sub: 'Perfiles, objetivos A/B/C, misma receta' },
-  { id: 'conversiones', ico: '⚖️', title: 'Crudo / cocinado', sub: 'Factores de cocción y calibrar' },
-  { id: 'tanda', ico: '🍲', title: 'Repartir tanda manual', sub: 'Rendimiento y raciones de una tanda suelta (desde el plan: Plan → Cocinar)' },
-  { id: 'historial', ico: '📅', title: 'Historial', sub: 'Días registrados y totales' },
-  { id: 'datos', ico: '💾', title: 'Datos', sub: 'Exportar, importar, restablecer' },
+type MoreId = Exclude<MoreView, 'menu'>;
+const MORE_ITEMS: { id: MoreId; ico: IconName; title: string; sub: string }[] = [
+  { id: 'alimentos', ico: 'leaf', title: 'Alimentos', sub: 'Valores, raciones y escáner de códigos' },
+  { id: 'progreso', ico: 'trend', title: 'Progreso', sub: 'Peso, tendencia y gráficas de kcal y proteína' },
+  { id: 'mercadona', ico: 'cart', title: 'Mercadona', sub: 'Cuenta, entrega, productos vinculados y diagnóstico' },
+  { id: 'sync', ico: 'cloud', title: 'Sincronizar', sub: 'Compartir datos entre los móviles de Dani y Alba' },
+  { id: 'config', ico: 'users', title: 'Configuración', sub: 'Perfiles, objetivos A/B/C, misma receta' },
+  { id: 'conversiones', ico: 'scale', title: 'Crudo / cocinado', sub: 'Factores de cocción y calibrar' },
+  { id: 'tanda', ico: 'pot', title: 'Repartir tanda manual', sub: 'Rendimiento y raciones de una tanda suelta (desde el plan: Plan → Cocinar)' },
+  { id: 'historial', ico: 'history', title: 'Historial', sub: 'Días registrados y totales' },
+  { id: 'datos', ico: 'archive', title: 'Datos', sub: 'Exportar, importar, restablecer' },
 ];
 
-const SYNC_ICON = { off: '', idle: '☁️', syncing: '🔄', error: '⚠️', offline: '📴' } as const;
+/** Secciones del menú Más */
+const MORE_GROUPS: { title: string; ids: MoreId[] }[] = [
+  { title: 'Seguimiento', ids: ['progreso', 'historial'] },
+  { title: 'Cocina y alimentos', ids: ['alimentos', 'conversiones', 'tanda'] },
+  { title: 'Compra', ids: ['mercadona'] },
+  { title: 'Cuenta y datos', ids: ['config', 'sync', 'datos'] },
+];
+
+const SYNC_ICON: Record<'idle' | 'syncing' | 'error' | 'offline', IconName> = { idle: 'cloud', syncing: 'sync', error: 'alert', offline: 'offline' };
+const SYNC_LABEL = { idle: 'Sincronizado', syncing: 'Sincronizando…', error: 'Error de sincronización', offline: 'Sin conexión' } as const;
 
 export default function App() {
   const { syncStatus, data, fm, stockApply } = useStore();
@@ -209,33 +220,41 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="row" style={{ minWidth: 0 }}>
-          {tab === 'mas' && more !== 'menu' && (
+        <div className="brand">
+          {tab === 'mas' && more !== 'menu' ? (
             <button className="back" onClick={() => setMore('menu')} aria-label="Volver">
-              ‹
+              <Icon name="back" size={22} />
             </button>
+          ) : (
+            tab === 'inicio' && <BrandMark />
           )}
-          <h1>{title}</h1>
+          {tab === 'inicio' ? (
+            <h1>
+              Dani <em>&amp;</em> Alba
+            </h1>
+          ) : (
+            <h1>{title}</h1>
+          )}
         </div>
-        <div className="row" style={{ gap: 6 }}>
+        <div className="topbar-actions">
           {syncStatus !== 'off' && (
             <button
-              className="iconbtn"
-              style={{ border: 'none', background: 'none' }}
-              title="Sincronización"
+              className={`topbtn sync-${syncStatus}`}
+              title={SYNC_LABEL[syncStatus]}
+              aria-label={SYNC_LABEL[syncStatus]}
               onClick={() => {
                 setTab('mas');
                 setMore('sync');
               }}
             >
-              {SYNC_ICON[syncStatus]}
+              <Icon name={SYNC_ICON[syncStatus]} size={20} />
             </button>
           )}
-          <button className="iconbtn" style={{ border: 'none', background: 'none' }} title="Asistente de voz" aria-label="Asistente de voz" onClick={() => setAsistente({ listen: true })}>
-            🎤
+          <button className="topbtn" title="Asistente de voz" aria-label="Asistente de voz" onClick={() => setAsistente({ listen: true })}>
+            <Icon name="mic" size={21} />
           </button>
-          <button className="iconbtn" style={{ border: 'none', background: 'none' }} title="Buscar" aria-label="Buscar" onClick={() => setSearch('')}>
-            🔎
+          <button className="topbtn" title="Buscar" aria-label="Buscar" onClick={() => setSearch('')}>
+            <Icon name="search" size={21} />
           </button>
           <WeightToggle />
         </div>
@@ -265,20 +284,32 @@ export default function App() {
       {tab === 'casa' && <CasaScreen key={casaKey} initialView={casaView} initialItem={jump.item} onToast={showToast} />}
       {tab === 'favoritos' && <FavoritesScreen key={`f${jump.n}`} initialOpen={jump.fav} onToast={showToast} />}
       {tab === 'mas' && more === 'menu' && (
-        <div className="screen">
-          <div className="list">
-            {MORE_ITEMS.map((m) => (
-              <button key={m.id} className="list-item" onClick={() => setMore(m.id)}>
-                <div className="thumb">{m.ico}</div>
-                <div className="grow">
-                  <div className="ttl">{m.title}</div>
-                  <div className="sub">{m.sub}</div>
-                </div>
-                <span className="muted">›</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <main className="screen">
+          {MORE_GROUPS.map((g) => (
+            <section key={g.title} className="list-section">
+              <h3 className="eyebrow">{g.title}</h3>
+              <div className="list">
+                {g.ids.map((id) => {
+                  const m = MORE_ITEMS.find((x) => x.id === id)!;
+                  return (
+                    <button key={m.id} className="list-item" onClick={() => setMore(m.id)}>
+                      <div className="thumb tint">
+                        <Icon name={m.ico} size={21} />
+                      </div>
+                      <div className="grow">
+                        <div className="ttl">{m.title}</div>
+                        <div className="sub">{m.sub}</div>
+                      </div>
+                      <span className="list-chev">
+                        <Icon name="chevron" size={18} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </main>
       )}
       {tab === 'mas' && more === 'alimentos' && <FoodsScreen key={`a${jump.n}`} initialFood={jump.food} onToast={showToast} />}
       {tab === 'mas' && more === 'progreso' && <ProgressScreen onToast={showToast} />}
@@ -290,12 +321,13 @@ export default function App() {
       {tab === 'mas' && more === 'historial' && <HistoryScreen />}
       {tab === 'mas' && more === 'datos' && <DataScreen onToast={showToast} />}
 
-      <nav className="bottomnav">
+      <nav className="bottomnav" aria-label="Secciones">
         <div className="bottomnav-inner">
           {TABS.map((t) => (
             <button
               key={t.id}
               className={tab === t.id ? 'active' : ''}
+              aria-current={tab === t.id ? 'page' : undefined}
               onClick={() => {
                 if (t.id === 'generar' && tab !== 'generar') {
                   setPreset(undefined);
@@ -306,7 +338,9 @@ export default function App() {
                 window.scrollTo(0, 0);
               }}
             >
-              <span className="ico">{t.ico}</span>
+              <span className="ico">
+                <Icon name={t.ico} size={23} strokeWidth={tab === t.id ? 2 : 1.75} />
+              </span>
               {t.label}
             </button>
           ))}
@@ -350,5 +384,18 @@ export default function App() {
       {timerEnd && <GlobalTimer end={timerEnd} onDone={() => setTimerEnd(null)} />}
       {toast && <Toast text={toast.text} undo={toast.undo} onDone={clearToast} />}
     </div>
+  );
+}
+
+/** Logotipo: un plato con los colores de Dani, Alba y el acento */
+function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="10" fill="var(--primary)" />
+      <circle cx="16" cy="16" r="10" fill="var(--card)" />
+      <circle cx="12.5" cy="14" r="2.6" fill="var(--dani)" />
+      <circle cx="19.5" cy="14" r="2.6" fill="var(--alba)" />
+      <circle cx="16" cy="20" r="2.6" fill="var(--mb-c)" />
+    </svg>
   );
 }

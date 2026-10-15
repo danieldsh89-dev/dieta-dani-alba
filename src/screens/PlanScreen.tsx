@@ -29,6 +29,7 @@ import { PlanVozSheet } from '../components/PlanVozSheet';
 import { ShortageSheet } from '../components/ShortageSheet';
 import { dayCost, useShortages } from '../lib/useStock';
 import { eur, sectionFor, SECTIONS } from '../lib/mealInfo';
+import { Icon } from '../components/icons';
 import { ev, foodItem } from '../lib/stock';
 
 type View = 'semana' | 'compra' | 'cocinar';
@@ -539,7 +540,7 @@ function SlotSheet({
       {s && isFree(s) && <div className="card tight">🍕 Comida libre{s.descripcion ? `: ${s.descripcion}` : ''}</div>}
       <div className="col">
         <button className="btn primary" onClick={onGenerate}>
-          ⚙️ {s ? 'Generar otra' : 'Generar'}
+          <Icon name="generar" size={18} /> {s ? 'Generar otra' : 'Generar'}
           {pid ? ` (solo ${data.profiles[pid].nombre})` : ''}
         </button>
         <button className="btn" onClick={() => setMode('fav')}>

@@ -23,68 +23,97 @@ import { manualReceipt, syncOrders } from '../integrations/mercadona/orders';
 import { MercaError } from '../integrations/mercadona/client';
 import { scheduleReminders } from '../lib/notify';
 import { VoiceBar } from '../components/VoiceBar';
+import { Icon } from '../components/icons';
 import { QtyEditor } from '../components/QtyEditor';
 import { StockItemSheet } from '../components/StockItemSheet';
 import { MercaProductPicker } from '../components/MercaLinkSheet';
 import { Segmented, Sheet, Warnings } from '../components/ui';
+import { useBackHandler } from '../lib/back';
+import { MercaBasketView } from './MercaBasket';
+import { MercadonaScreen } from './MercadonaScreen';
+import { ListaCompraView, RangoCompra, ResumenView, useRangoCompra, type CasaDestino } from './CasaCompra';
 
-type View = 'stock' | 'revisar' | 'gasto' | 'ajustes';
-const memo: { view: View; zona?: StockZone } = { view: 'stock' };
+/** Apartados de Casa (los cinco de arriba) y subpantallas */
+type View = 'resumen' | 'stock' | 'lista' | 'carrito' | 'gasto' | 'revisar' | 'ajustes' | 'mercadona';
+const memo: { view: View; zona?: StockZone } = { view: 'resumen' };
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
 const NIVEL_BADGE = { ok: '', poco: 'warn', agotado: 'bad' } as const;
 
+/** subpantalla → apartado del que cuelga (para el selector y para "atrás") */
+const PADRE: Partial<Record<View, View>> = { revisar: 'stock', ajustes: 'resumen', mercadona: 'carrito' };
+const SUB_TITULO: Partial<Record<View, string>> = { revisar: 'Revisar la despensa', ajustes: 'Ajustes de la despensa', mercadona: 'Cuenta de Mercadona' };
+const NOMBRE: Record<View, string> = {
+  resumen: 'Inicio',
+  stock: 'Despensa',
+  lista: 'Lista',
+  carrito: 'Carrito',
+  gasto: 'Gasto',
+  revisar: 'Revisar',
+  ajustes: 'Ajustes',
+  mercadona: 'Mercadona',
+};
+
 export function CasaScreen({ onToast, initialView, initialItem }: { onToast: Toaster; initialView?: CasaView; initialItem?: string }) {
   const { data, fm, cm } = useStore();
-  const [view, setView] = useState<View>(initialView === 'voz' ? 'stock' : (initialView ?? memo.view));
+  const [view, setViewState] = useState<View>(initialView === 'voz' ? 'resumen' : (initialView ?? memo.view));
+  const [filtro, setFiltro] = useState<Filtro | undefined>();
+  const setView = (v: View) => {
+    memo.view = v;
+    setViewState(v);
+    window.scrollTo(0, 0);
+  };
   memo.view = view;
   const [open, setOpen] = useState<StockItem | null>(() => (initialItem ? (data.stock.items[initialItem] ?? null) : null));
-  const hoy = todayKey();
+  const rango = useRangoCompra();
   const states = useMemo(() => computeStock(data, fm, cm), [data, fm, cm]);
-  const items = Object.values(data.stock.items);
-  const started = !!data.stock.config.desde || items.length > 0;
+  const started = !!data.stock.config.desde || Object.keys(data.stock.items).length > 0;
+  const padre = PADRE[view];
+  // atrás desde una subpantalla: vuelve a su apartado
+  useBackHandler(() => {
+    setView(padre!);
+    return true;
+  }, !!padre);
 
-  const counts = useMemo(() => {
-    let agotado = 0;
-    let poco = 0;
-    for (const it of items) {
-      const s = states[it.id];
-      if (!s || s.fuente === 'desconocido') continue;
-      if (s.nivel === 'agotado') agotado++;
-      else if (s.nivel === 'poco') poco++;
+  const go = (d: CasaDestino) => {
+    if (d === 'falta') {
+      setFiltro('falta');
+      return setView('stock');
     }
-    return { agotado, poco, caducan: caducanPronto(data, states, hoy).length };
-  }, [items, states, data, hoy]);
+    setFiltro(undefined);
+    setView(d);
+  };
 
   return (
     <div className="screen">
-      <div className="card">
-        <div className="row between">
-          <b>🏠 Despensa</b>
-          <span className="tiny">
-            {counts.agotado > 0 && <span className="badge bad">{counts.agotado} agotado</span>}{' '}
-            {counts.poco > 0 && <span className="badge warn">{counts.poco} poco</span>}{' '}
-            {counts.caducan > 0 && <span className="badge info">⏳ {counts.caducan}</span>}
-          </span>
-        </div>
-        <VoiceBar big autoStart={initialView === 'voz'} />
-      </div>
       <Segmented
         full
-        value={view}
-        options={[
-          { value: 'stock', label: '📦 Hay' },
-          { value: 'revisar', label: '🔎 Revisar' },
-          { value: 'gasto', label: '💶 Compras' },
-          { value: 'ajustes', label: '⚙️' },
-        ]}
-        onChange={setView}
+        className="five"
+        value={padre ?? view}
+        options={(['resumen', 'stock', 'lista', 'carrito', 'gasto'] as View[]).map((v) => ({ value: v, label: NOMBRE[v] }))}
+        onChange={(v) => go(v as CasaDestino)}
       />
-      {!started && view === 'stock' && <Onboarding onToast={onToast} onCount={() => setView('revisar')} />}
-      {view === 'stock' && started && <StockView states={states} onOpen={setOpen} onToast={onToast} />}
+      {padre && (
+        <div className="subhead">
+          <button className="btn link small" onClick={() => setView(padre)}>
+            ‹ {NOMBRE[padre]}
+          </button>
+          <h2>{SUB_TITULO[view]}</h2>
+        </div>
+      )}
+      {view === 'resumen' && !started && <Onboarding onToast={onToast} onCount={() => setView('revisar')} />}
+      {view === 'resumen' && <ResumenView from={rango.from} to={rango.to} states={states} autoVoz={initialView === 'voz'} onGo={go} />}
+      {view === 'stock' && !started && <Onboarding onToast={onToast} onCount={() => setView('revisar')} />}
+      {view === 'stock' && started && (
+        <StockView key={filtro ?? 'todo'} states={states} initialFiltro={filtro} onOpen={setOpen} onToast={onToast} onRevisar={() => setView('revisar')} />
+      )}
+      {(view === 'lista' || view === 'carrito') && <RangoCompra {...rango} />}
+      {view === 'lista' && <ListaCompraView from={rango.from} to={rango.to} onToast={onToast} onOpenItem={setOpen} onCarrito={() => setView('carrito')} />}
+      {view === 'carrito' && <MercaBasketView from={rango.from} to={rango.to} onToast={onToast} onOpenSettings={() => setView('mercadona')} />}
       {view === 'revisar' && <ReviewView states={states} onOpen={setOpen} onToast={onToast} />}
       {view === 'gasto' && <ComprasView onToast={onToast} />}
       {view === 'ajustes' && <AjustesView onToast={onToast} />}
+      {view === 'mercadona' && <MercadonaScreen embedded onToast={onToast} />}
       {open && <StockItemSheet item={data.stock.items[open.id] ?? open} state={states[open.id]} onClose={() => setOpen(null)} onToast={onToast} />}
     </div>
   );
@@ -118,7 +147,7 @@ function Onboarding({ onToast, onCount }: { onToast: Toaster; onCount: () => voi
           Empezar y hacer el recuento
         </button>
       </div>
-      <div className="tiny muted">¿Tenías el inventario en “Despensa” (bot de Telegram)? Impórtalo en ⚙️.</div>
+      <div className="tiny muted">¿Tenías el inventario en “Despensa” (bot de Telegram)? Impórtalo en Inicio → Ajustes de la despensa.</div>
     </div>
   );
 }
@@ -127,9 +156,21 @@ function Onboarding({ onToast, onCount }: { onToast: Toaster; onCount: () => voi
 
 type Filtro = 'todo' | 'falta' | 'hay' | 'sin';
 
-function StockView({ states, onOpen, onToast }: { states: Record<string, ItemState>; onOpen: (it: StockItem) => void; onToast: Toaster }) {
+function StockView({
+  states,
+  initialFiltro,
+  onOpen,
+  onToast,
+  onRevisar,
+}: {
+  states: Record<string, ItemState>;
+  initialFiltro?: Filtro;
+  onOpen: (it: StockItem) => void;
+  onToast: Toaster;
+  onRevisar: () => void;
+}) {
   const { data, fm, stockApply } = useStore();
-  const [filtro, setFiltro] = useState<Filtro>('todo');
+  const [filtro, setFiltro] = useState<Filtro>(initialFiltro ?? 'todo');
   const [q, setQ] = useState('');
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
@@ -185,10 +226,14 @@ function StockView({ states, onOpen, onToast }: { states: Record<string, ItemSta
           </div>
         </div>
       )}
+      <VoiceBar />
       <div className="row" style={{ gap: 6 }}>
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" />
-        <button className="btn small soft" onClick={() => setAdding(true)}>
-          ➕
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar en casa…" />
+        <button className="btn soft" onClick={() => setAdding(true)} aria-label="Añadir a la despensa" title="Añadir">
+          <Icon name="plus" size={18} />
+        </button>
+        <button className="btn" onClick={onRevisar}>
+          🔎 Revisar
         </button>
       </div>
       <div className="chips">
@@ -558,7 +603,7 @@ function ComprasView({ onToast }: { onToast: Toaster }) {
             {meses.map((m) => (
               <div key={m.mes} className="col grow" style={{ alignItems: 'center', gap: 2 }}>
                 <span className="tiny">{Math.round(m.total)} €</span>
-                <div style={{ width: '100%', maxWidth: 40, height: Math.max(4, (m.total / max) * 80), background: 'var(--accent)', borderRadius: 4 }} />
+                <div style={{ width: '100%', maxWidth: 40, height: Math.max(4, (m.total / max) * 80), background: 'var(--primary)', borderRadius: 4 }} />
                 <span className="tiny muted">{new Date(m.mes + '-15').toLocaleDateString('es-ES', { month: 'short' })}</span>
               </div>
             ))}
@@ -589,7 +634,6 @@ function AjustesView({ onToast }: { onToast: Toaster }) {
   };
   return (
     <div className="card">
-      <b>⚙️ Despensa</b>
       <label className="check small">
         <input type="checkbox" checked={cfg.autoPlan} onChange={(e) => set({ autoPlan: e.target.checked })} />
         Descontar las comidas registradas aunque no se confirmen (recomendado)

@@ -43,8 +43,8 @@ export class MercaError extends Error {
 export const ERROR_HELP: Record<MercaErrorCode, string> = {
   sin_red: 'Sin conexión o Mercadona no responde. Prueba de nuevo en un rato.',
   solo_apk: 'Esta parte solo funciona en la app instalada (APK), no en la versión web.',
-  sin_sesion: 'Vincula tu cuenta de Mercadona en Más → Mercadona (una sola vez).',
-  sesion_caducada: 'La sesión de Mercadona ha caducado. Vuelve a vincular la cuenta (Más → Mercadona).',
+  sin_sesion: 'Vincula tu cuenta de Mercadona en Casa → Inicio → Cuenta de Mercadona (una sola vez).',
+  sesion_caducada: 'La sesión de Mercadona ha caducado. Vuelve a vincular la cuenta (Casa → Inicio → Cuenta de Mercadona).',
   bloqueado: 'Mercadona ha bloqueado la petición (protección anti-bots). Espera un rato o abre la web de Mercadona en el móvil y vuelve a intentarlo.',
   limite: 'Demasiadas peticiones seguidas. Espera un minuto.',
   no_encontrado: 'Producto o recurso no encontrado (quizá ya no está a la venta en tu almacén).',

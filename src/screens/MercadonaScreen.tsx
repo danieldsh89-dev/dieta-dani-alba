@@ -10,7 +10,7 @@ import { MercaLinksManager } from './MercaLinks';
 
 const fecha = (iso?: string) => (iso ? new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 
-export function MercadonaScreen({ onToast }: { onToast: Toaster }) {
+export function MercadonaScreen({ onToast, embedded }: { onToast: Toaster; /** dentro de Casa → Carrito */ embedded?: boolean }) {
   const { setMercaConfig, data } = useStore();
   const cfg = data.mercadona.config;
   const native = isNative();
@@ -55,11 +55,11 @@ export function MercadonaScreen({ onToast }: { onToast: Toaster }) {
     });
 
   return (
-    <div className="screen">
+    <div className={embedded ? 'stack' : 'screen'}>
       <div className="card">
         <h3>🛒 Compra en Mercadona</h3>
         <div className="sub">
-          Convierte la lista de la compra del plan en productos de Mercadona y la carga en tu carrito. <b>Nunca hace el pedido ni paga</b>: eso lo
+          Convierte la lista de la compra de casa en productos de Mercadona y la carga en tu carrito. <b>Nunca hace el pedido ni paga</b>: eso lo
           haces tú en Mercadona.
         </div>
         <Warnings

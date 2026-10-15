@@ -11,7 +11,6 @@ import { BatchScreen, ConversionsScreen, DataScreen, HistoryScreen } from './scr
 import { PlanScreen } from './screens/PlanScreen';
 import { SyncScreen } from './screens/SyncScreen';
 import { ProgressScreen } from './screens/ProgressScreen';
-import { MercadonaScreen } from './screens/MercadonaScreen';
 import { CasaScreen, type CasaView } from './screens/CasaScreen';
 import { ConfirmDaySheet } from './components/ConfirmDaySheet';
 import { GlobalSearch, type SearchTarget } from './components/GlobalSearch';
@@ -30,7 +29,7 @@ import { useStore } from './store/AppStore';
 import { useBackHandler } from './lib/back';
 
 type Tab = 'inicio' | 'plan' | 'generar' | 'casa' | 'favoritos' | 'mas';
-type MoreView = 'menu' | 'alimentos' | 'progreso' | 'mercadona' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
+type MoreView = 'menu' | 'alimentos' | 'progreso' | 'sync' | 'config' | 'conversiones' | 'tanda' | 'historial' | 'datos';
 
 const TABS: { id: Tab; label: string; ico: IconName }[] = [
   { id: 'inicio', label: 'Hoy', ico: 'hoy' },
@@ -45,7 +44,6 @@ type MoreId = Exclude<MoreView, 'menu'>;
 const MORE_ITEMS: { id: MoreId; ico: IconName; title: string; sub: string }[] = [
   { id: 'alimentos', ico: 'leaf', title: 'Alimentos', sub: 'Valores, raciones y escáner de códigos' },
   { id: 'progreso', ico: 'trend', title: 'Progreso', sub: 'Peso, tendencia y gráficas de kcal y proteína' },
-  { id: 'mercadona', ico: 'cart', title: 'Mercadona', sub: 'Cuenta, entrega, productos vinculados y diagnóstico' },
   { id: 'sync', ico: 'cloud', title: 'Sincronizar', sub: 'Compartir datos entre los móviles de Dani y Alba' },
   { id: 'config', ico: 'users', title: 'Configuración', sub: 'Perfiles, objetivos A/B/C, misma receta' },
   { id: 'conversiones', ico: 'scale', title: 'Crudo / cocinado', sub: 'Factores de cocción y calibrar' },
@@ -58,7 +56,6 @@ const MORE_ITEMS: { id: MoreId; ico: IconName; title: string; sub: string }[] = 
 const MORE_GROUPS: { title: string; ids: MoreId[] }[] = [
   { title: 'Seguimiento', ids: ['progreso', 'historial'] },
   { title: 'Cocina y alimentos', ids: ['alimentos', 'conversiones', 'tanda'] },
-  { title: 'Compra', ids: ['mercadona'] },
   { title: 'Cuenta y datos', ids: ['config', 'sync', 'datos'] },
 ];
 
@@ -74,14 +71,17 @@ export default function App() {
   const [asistente, setAsistente] = useState<{ listen: boolean } | null>(null);
   const [planVoz, setPlanVoz] = useState<string | null>(null);
   const [timerEnd, setTimerEnd] = useState<number | null>(null);
-  const [planView, setPlanView] = useState<{ v: 'semana' | 'lista' | 'mercadona'; n: number } | undefined>();
+  const [planView, setPlanView] = useState<{ v: 'semana'; n: number } | undefined>();
   const goDestino = (dst: Destino) => {
     window.scrollTo(0, 0);
     if (dst === 'hoy') return setTab('inicio');
-    if (dst === 'plan' || dst === 'compra' || dst === 'mercadona') {
-      setPlanView({ v: dst === 'plan' ? 'semana' : dst === 'compra' ? 'lista' : 'mercadona', n: Date.now() });
+    if (dst === 'plan') {
+      setPlanView({ v: 'semana', n: Date.now() });
       return setTab('plan');
     }
+    // la despensa y la compra viven en Casa
+    if (dst === 'compra') return openCasa('lista');
+    if (dst === 'mercadona') return openCasa('carrito');
     if (dst === 'casa' || dst === 'revision') return openCasa(dst === 'casa' ? 'stock' : 'revisar');
     if (dst === 'favoritos') return setTab('favoritos');
     if (dst === 'generar') return setTab('generar');
@@ -212,7 +212,7 @@ export default function App() {
         : tab === 'generar'
         ? 'Generador A/B/C'
         : tab === 'casa'
-          ? 'Casa'
+          ? 'Casa y compra'
           : tab === 'favoritos'
             ? 'Favoritos'
             : moreItem?.title ?? 'Más';
@@ -274,10 +274,10 @@ export default function App() {
           focusDate={jump.fecha}
           focusView={planView}
           onGenerate={goGenerate}
-          onOpenMercadona={() => {
-            setTab('mas');
-            setMore('mercadona');
-          }} onToast={showToast} />}
+          onOpenCompra={() => openCasa('lista')}
+          onToast={showToast}
+        />
+      }
       {tab === 'generar' && (
         <GeneratorScreen key={genKey} preset={preset} onToast={showToast} onUsed={() => setTab(returnTo === 'plan' ? 'plan' : 'inicio')} />
       )}
@@ -313,7 +313,6 @@ export default function App() {
       )}
       {tab === 'mas' && more === 'alimentos' && <FoodsScreen key={`a${jump.n}`} initialFood={jump.food} onToast={showToast} />}
       {tab === 'mas' && more === 'progreso' && <ProgressScreen onToast={showToast} />}
-      {tab === 'mas' && more === 'mercadona' && <MercadonaScreen onToast={showToast} />}
       {tab === 'mas' && more === 'sync' && <SyncScreen onToast={showToast} />}
       {tab === 'mas' && more === 'config' && <SettingsScreen onToast={showToast} />}
       {tab === 'mas' && more === 'conversiones' && <ConversionsScreen onToast={showToast} />}

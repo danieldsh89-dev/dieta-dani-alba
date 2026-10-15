@@ -24,11 +24,44 @@ import { computeStock, stockCover } from '../lib/stock';
 import { otrosParaCarrito } from './MercaOtros';
 import { Sheet, Warnings } from '../components/ui';
 import { shareText } from './SyncScreen';
+import { apuntadosDieta } from '../lib/compra';
+import type { AppData } from '../types';
+import type { FoodMap } from '../lib/nutrition';
+import type { ConversionMap } from '../lib/conversions';
+import type { ItemState } from '../lib/stock';
+import type { BasketOptions } from '../integrations/mercadona/basket';
 
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
 /** Ajustes de la cesta que se recuerdan mientras la app está abierta */
 const memo: { ajustes: Record<string, number>; quitados: string[]; incluirEnCasa: boolean } = { ajustes: {}, quitados: [], incluirEnCasa: false };
+
+/**
+ * La cesta de una compra: lo del plan (menos la despensa), los alimentos apuntados a mano
+ * y las cosas de casa que tocan. Es lo mismo que la lista de la compra, en productos de Mercadona.
+ */
+export function calcCesta(
+  data: AppData,
+  fm: FoodMap,
+  cm: ConversionMap,
+  states: Record<string, ItemState>,
+  from: string,
+  to: string,
+  o: Pick<BasketOptions, 'ajustes' | 'quitados' | 'incluirEnCasa'> = memo,
+) {
+  const plan = shoppingList(plannedMeals(data.history, datesBetween(from, to)), fm, cm);
+  const extra = apuntadosDieta(data, fm, new Set(plan.map((i) => i.food.id)));
+  const items = [...plan, ...extra];
+  // lo que hay en casa se descuenta de lo que pide el plan (lo apuntado a mano se compra igual)
+  const cubierto = { ...stockCover(data, fm, cm, states, from) };
+  for (const x of extra) delete cubierto[x.food.id];
+  const lines = buildBasket(items, data.mercadona.links, { pantry: data.pantry, otraTienda: data.mercadona.config.otraTienda ?? [], cubierto, ...o });
+  const otros = otrosParaCarrito(Object.values(data.stock.items), states, to).map(habitualCartLine);
+  const totalOtros = Math.round(otros.reduce((t, x) => t + x.quantity * (x.unitPrice ?? 0), 0) * 100) / 100;
+  const total = Math.round((basketTotal(lines) + totalOtros) * 100) / 100;
+  const nProductos = lines.filter((l) => l.status === 'ok').length + otros.length;
+  return { items, plan, lines, otros, total, nProductos };
+}
 
 export function MercaBasketView({
   from,
@@ -57,20 +90,11 @@ export function MercaBasketView({
   memo.quitados = quitados;
   memo.incluirEnCasa = incluirEnCasa;
 
-  const meals = useMemo(() => plannedMeals(data.history, datesBetween(from, to)), [data.history, from, to]);
-  const items = useMemo(() => shoppingList(meals, fm, cm), [meals, fm, cm]);
-  // lo que hay en casa (despensa) se descuenta de lo que pide el plan
   const states = useMemo(() => computeStock(data, fm, cm), [data, fm, cm]);
-  const cubierto = useMemo(() => stockCover(data, fm, cm, states, from), [data, fm, cm, states, from]);
-  const lines = useMemo(
-    () => buildBasket(items, data.mercadona.links, { pantry: data.pantry, incluirEnCasa, quitados, ajustes, otraTienda, cubierto }),
-    [items, data.mercadona.links, data.pantry, incluirEnCasa, quitados, ajustes, otraTienda, cubierto],
+  const { items, lines, otros, total, nProductos } = useMemo(
+    () => calcCesta(data, fm, cm, states, from, to, { incluirEnCasa, quitados, ajustes }),
+    [data, fm, cm, states, from, to, incluirEnCasa, quitados, ajustes],
   );
-  const otrosHabs = otrosParaCarrito(Object.values(data.stock.items), states, to);
-  const otros = otrosHabs.map(habitualCartLine);
-  const totalOtros = Math.round(otros.reduce((t, o) => t + o.quantity * (o.unitPrice ?? 0), 0) * 100) / 100;
-  const total = Math.round((basketTotal(lines) + totalOtros) * 100) / 100;
-  const nProductos = lines.filter((l) => l.status === 'ok').length + otros.length;
   const sinVincular = lines.filter((l) => l.status === 'sin_vincular');
   const sugeridos = lines.filter((l) => l.link && !l.link.confirmado);
   const native = isNative();
@@ -152,10 +176,10 @@ export function MercaBasketView({
     }
   };
 
-  if (!meals.length && !Object.values(data.stock.items).some((i) => !i.foodId))
+  if (!items.length && !Object.values(data.stock.items).some((i) => !i.foodId))
     return (
       <>
-        <div className="empty">No hay comidas planificadas en esas fechas. Planifícalas en “Semana”.</div>
+        <div className="empty">No hay nada que comprar en esas fechas: ni comidas planificadas ni cosas de casa apuntadas.</div>
         <OtrosCard hasta={to} onToast={onToast} />
       </>
     );
@@ -322,7 +346,7 @@ export function MercaBasketView({
               ✕ Quitar solo de esta compra
             </button>
           </div>
-          <div className="sub">“Siempre” se recuerda; lo puedes deshacer abajo en “🏪 En otra tienda” o en Más → Mercadona.</div>
+          <div className="sub">“Siempre” se recuerda; lo puedes deshacer abajo en “🏪 En otra tienda” o en Casa → Inicio → Cuenta de Mercadona.</div>
         </Sheet>
       )}
       {linkFor && <MercaLinkSheet food={linkFor} onClose={() => setLinkFor(null)} onToast={onToast} />}

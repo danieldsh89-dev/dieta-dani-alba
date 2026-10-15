@@ -239,7 +239,7 @@ Plan → Compra → **🛒 Mercadona** convierte la lista de la compra en produc
 1. Chrome → `tienda.mercadona.es` → **F12** → pestaña **Network** → inicia sesión normalmente.
 2. Con la sesión iniciada: clic derecho en la lista de Network → **Save all as HAR**.
 3. En la carpeta del proyecto: `npm run mercadona:vincular -- "C:\ruta\archivo.har"` → se abre una página con un QR (se borra sola en 10 min).
-4. En el móvil: **Más → Mercadona → 📷 Escanear QR del PC**. Borra el archivo HAR.
+4. En el móvil: **Casa → Inicio → Cuenta de Mercadona → 📷 Escanear QR del PC**. Borra el archivo HAR.
 
 La sesión se guarda **solo en ese móvil** (no se sincroniza, no se exporta, no va a GitHub) y se renueva sola. Solo hay que repetirlo si Mercadona cierra la sesión (cambio de contraseña, "cerrar sesión en todos los dispositivos").
 
@@ -250,7 +250,7 @@ Plan → Compra → 🛒 Mercadona → **✨ Proponer productos** (la primera ve
 ### Si algo falla
 
 - **📋 Copiar lista con productos** / **💻 Exportar para el PC**: funcionan siempre, sin cuenta.
-- **Más → Mercadona → 🩺 Diagnóstico**: prueba buscador, código postal, sesión y lectura del carrito sin modificar nada.
+- **Casa → Inicio → Cuenta de Mercadona → 🩺 Diagnóstico**: prueba buscador, código postal, sesión y lectura del carrito sin modificar nada.
 - **Ajustes avanzados**: "Redescubrir buscador" (si Mercadona cambia sus claves de búsqueda), x-version, restaurar valores.
 - El código vive en `src/integrations/mercadona/` (cliente, cesta, sesión) con tests en `src/lib/__tests__/mercadona.test.ts`.
 - Es una API no oficial: puede cambiar sin aviso. En la web (GitHub Pages) solo funciona la búsqueda; carrito y cuenta requieren el APK.
@@ -285,7 +285,7 @@ Cada producto de casa tiene modo al acabarse: **🔁 habitual** (entra solo en l
 
 ## Novedades v1.6.4 – v1.6.6
 
-- **Vincular todos los alimentos con Mercadona** (Más → Mercadona): filtros, proponer todos, confirmar sugeridos, otra tienda; también desde la ficha del alimento y de la despensa.
+- **Vincular todos los alimentos con Mercadona** (Casa → Inicio → Cuenta de Mercadona): filtros, proponer todos, confirmar sugeridos, otra tienda; también desde la ficha del alimento y de la despensa.
 - **Ventanas que se desplazan bien** con listas largas (favoritos, búsqueda de Mercadona…).
 - **Favoritos**: ordenar (más usados, recientes, nuevos, A–Z, mejor valorados, más proteína, menos kcal, con lo que hay en casa, más baratos); **iconos automáticos** de sus ingredientes (🍗🥔) o elegidos a mano; foto opcional; **preparación** (notas) editable.
 - **🔁 Variantes**: cambiar solo el hidrato / la proteína / la verdura por otro con la cantidad equivalente, reajustando solo el nuevo para seguir en el objetivo. Desde un favorito (guardar como nuevo / usar hoy), desde una comida de Hoy y desde el Plan.
@@ -326,3 +326,21 @@ Código: `src/lib/asistente.ts` (intérprete de órdenes), `src/components/Asist
 
 ### v1.8.3
 - **Hidrato distinto en la comida y la cena del mismo día** (por defecto, desmarcable): en el plan por voz ("No repetir el hidrato entre la comida y la cena del mismo día") y en el generador ("No repetir el hidrato de la comida/cena", cuando el otro bloque del día ya tiene comida). Papa fresca y de bote cuentan como papas; los tipos de pasta, como pasta. La proteína sí se puede repetir; entre días, también el hidrato.
+
+## Novedades v1.9 — Rediseño
+- Nueva imagen: tipografía Geist + Fraunces (incluidas, funcionan sin conexión), paleta cálida con un solo acento, iconos propios, barra inferior flotante, ventanas con asa y animaciones suaves. Modo claro y oscuro.
+- **Hoy**: anillos de kcal por persona con lo que queda, proteína y macros; acciones de cada comida en cuadrícula.
+- **Más** agrupado por secciones.
+- `npm run apk:nuevo`: versión de prueba (“D&A Nuevo”) que se instala junto a la normal sin tocarla.
+
+## Novedades v1.10 — Casa: despensa y compra, separadas de la dieta
+La pestaña **Casa** es ahora la sección de la casa, con cinco apartados:
+- **Inicio**: hablar (“se acabó la leche, apunta papel higiénico”), lo que hay que comprar, el carrito estimado, lo que se acaba y lo que caduca; accesos a revisar, pedidos, cuenta de Mercadona y ajustes.
+- **Despensa**: todo lo de casa por zonas (nevera, congelador, limpieza, baño…), sea de la dieta o no.
+- **Lista**: una sola lista de la compra por pasillos, con la etiqueta de dónde sale cada cosa: 🍽️ *para el plan* (descontando la despensa), 📉 *se acaba*, 🔁 *toca* (por frecuencia) y ✍️ *apuntado* (a mano, por voz o desde la ficha; también alimentos fuera del plan). Se elige para cuándo es la compra; ✕ quita algo de esta compra; **✓ Comprado → despensa** lo suma (con ↺ Deshacer); se puede compartir.
+- **Carrito**: la misma lista en productos de Mercadona (como antes, nunca se paga). La cuenta de Mercadona está en Inicio → Cuenta de Mercadona.
+- **Gasto**: pedidos, gasto por mes y lo tirado.
+
+Plan se queda con *Semana* y *Cocinar*, con un acceso a “Lo que falta para el plan”. Las órdenes de voz “qué hay que comprar” / “carga el carrito” abren la Lista / el Carrito de Casa.
+
+Código: `src/lib/compra.ts` (lista unificada, tests en `compra.test.ts`), `src/screens/CasaCompra.tsx`, `src/screens/CasaScreen.tsx`.

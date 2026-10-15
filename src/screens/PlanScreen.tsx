@@ -12,7 +12,6 @@ import {
   datesBetween,
   formatDay,
   plannedMeals,
-  shoppingList,
   splitRealYield,
   weekDates,
   weekStart,
@@ -20,22 +19,19 @@ import {
 import { MealEditor } from '../components/MealEditor';
 import { DateSheet } from '../components/DateSheet';
 import { NameSheet } from '../components/NameSheet';
-import { NumberInput, Segmented, Sheet, Warnings, CATEGORY_ICONS } from '../components/ui';
+import { NumberInput, Segmented, Sheet, Warnings } from '../components/ui';
 import { FavoritePickSheet, FreeMealSheet } from './HomeScreen';
-import { shareText } from './SyncScreen';
-import { MercaBasketView } from './MercaBasket';
 import { VariantSheet } from '../components/VariantSheet';
 import { PlanVozSheet } from '../components/PlanVozSheet';
 import { ShortageSheet } from '../components/ShortageSheet';
 import { dayCost, useShortages } from '../lib/useStock';
-import { eur, sectionFor, SECTIONS } from '../lib/mealInfo';
+import { eur } from '../lib/mealInfo';
 import { Icon } from '../components/icons';
-import { ev, foodItem } from '../lib/stock';
 
-type View = 'semana' | 'compra' | 'cocinar';
+type View = 'semana' | 'cocinar';
 
 /** Recuerda la vista/semana/rango al cambiar de pestaña (p. ej. al ir a Generar y volver). */
-const memo: { view?: View; anchor?: string; from?: string; to?: string; compra?: 'lista' | 'mercadona' } = {};
+const memo: { view?: View; anchor?: string; from?: string; to?: string } = {};
 
 function useRemembered<T>(k: keyof typeof memo, initial: T): [T, (v: T) => void] {
   const [v, setV] = useState<T>((memo[k] as T) ?? initial);
@@ -50,29 +46,24 @@ function useRemembered<T>(k: keyof typeof memo, initial: T): [T, (v: T) => void]
 
 export function PlanScreen({
   onGenerate,
-  onOpenMercadona,
+  onOpenCompra,
   onToast,
   focusDate,
   focusView,
 }: {
   focusDate?: string;
-  /** abrir directamente en una vista (desde el asistente): semana, lista o Mercadona */
-  focusView?: { v: 'semana' | 'lista' | 'mercadona'; n: number };
+  /** abrir directamente en la semana (desde el asistente) */
+  focusView?: { v: 'semana'; n: number };
   onGenerate: (b: Block, fecha: string, para: ProfileId | 'ambos') => void;
-  onOpenMercadona: () => void;
+  /** la lista de la compra vive en Casa */
+  onOpenCompra: () => void;
   onToast: Toaster;
 }) {
-  const [compra, setCompra] = useRemembered<'lista' | 'mercadona'>('compra', 'lista');
   const today = todayKey();
   const [view, setView] = useRemembered<View>('view', 'semana');
   const [anchor, setAnchor] = useRemembered('anchor', today);
   useEffect(() => {
-    if (!focusView) return;
-    if (focusView.v === 'semana') setView('semana');
-    else {
-      setView('compra');
-      setCompra(focusView.v);
-    }
+    if (focusView) setView('semana');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusView?.n]);
   useEffect(() => {
@@ -92,28 +83,24 @@ export function PlanScreen({
         value={view}
         options={[
           { value: 'semana', label: '📅 Semana' },
-          { value: 'compra', label: '🛒 Compra' },
           { value: 'cocinar', label: '🍲 Cocinar' },
         ]}
         onChange={setView}
       />
+      {view === 'semana' && (
+        <button className="voice-cta" onClick={onOpenCompra}>
+          <span className="voice-cta-ico">
+            <Icon name="cart" size={20} />
+          </span>
+          <span className="grow">
+            <span className="voice-cta-t">Lo que falta para el plan</span>
+            <span className="voice-cta-s">Lista de la compra y carrito, en Casa</span>
+          </span>
+          <Icon name="chevron" size={18} className="muted" />
+        </button>
+      )}
       {view === 'semana' && <WeekView anchor={anchor} setAnchor={setAnchor} onGenerate={onGenerate} onToast={onToast} />}
-      {view !== 'semana' && <RangePicker from={from} to={to} setFrom={setFrom} setTo={setTo} />}
-      {view === 'compra' && (
-        <Segmented
-          full
-          value={compra}
-          options={[
-            { value: 'lista', label: '📝 Lista' },
-            { value: 'mercadona', label: '🛒 Mercadona' },
-          ]}
-          onChange={setCompra}
-        />
-      )}
-      {view === 'compra' && compra === 'lista' && <ShoppingView from={from} to={to} onToast={onToast} />}
-      {view === 'compra' && compra === 'mercadona' && (
-        <MercaBasketView from={from} to={to} onToast={onToast} onOpenSettings={onOpenMercadona} />
-      )}
+      {view === 'cocinar' && <RangePicker from={from} to={to} setFrom={setFrom} setTo={setTo} />}
       {view === 'cocinar' && <BatchView from={from} to={to} onToast={onToast} />}
     </div>
   );
@@ -642,114 +629,6 @@ function RangePicker({
         </label>
       </div>
     </div>
-  );
-}
-
-// ───────────────── Lista de la compra ─────────────────
-
-function ShoppingView({ from, to, onToast }: { from: string; to: string; onToast: Toaster }) {
-  const { data, fm, cm, setShoppingChecked, setPantry, stockApply } = useStore();
-  const meals = useMemo(() => plannedMeals(data.history, datesBetween(from, to)), [data.history, from, to]);
-  const items = useMemo(() => shoppingList(meals, fm, cm), [meals, fm, cm]);
-  // por secciones, como los pasillos de una tienda
-  const groups = useMemo(() => {
-    const by = new Map<string, typeof items>();
-    for (const it of items) {
-      const sec = sectionFor(it.food, data.stock.items[it.food.id]?.zona);
-      by.set(sec, [...(by.get(sec) ?? []), it]);
-    }
-    return SECTIONS.filter((s) => by.has(s)).map((s) => ({ sec: s, items: by.get(s)! }));
-  }, [items, data.stock.items]);
-  const qtyText = (it: (typeof items)[number]) =>
-    it.unit === 'unidad' ? `${it.unidades} ${it.food.nombreUnidad ?? 'ud'}${it.unidades === 1 ? '' : 's'}` : `${it.comprar.toLocaleString('es-ES')} ${it.unit}`;
-  const listText = () =>
-    [
-      title,
-      ...groups.flatMap((g) => [
-        '',
-        `— ${g.sec} —`,
-        ...g.items.map((it) => `${checked.includes(it.food.id) || data.pantry.includes(it.food.id) ? '☑' : '☐'} ${shortName(it.food)} — ${qtyText(it)}`),
-      ]),
-    ].join('\n');
-  const checked = data.shoppingChecked;
-  const toggle = (id: string) => setShoppingChecked(checked.includes(id) ? checked.filter((x) => x !== id) : [...checked, id]);
-  const title = `🛒 Compra ${formatDay(from, { day: 'numeric', month: 'short' })} – ${formatDay(to, { day: 'numeric', month: 'short' })}`;
-
-  if (!meals.length)
-    return <div className="empty">No hay comidas planificadas en esas fechas. Planifícalas en “Semana”.</div>;
-
-  const pending = items.filter((i) => !checked.includes(i.food.id) && !data.pantry.includes(i.food.id)).length;
-  return (
-    <>
-      <div className="sub">
-        {meals.length} comidas · cantidades para Dani y Alba juntas, <b>tal como se compran</b> (en crudo / seco / congelado). Quedan{' '}
-        <b>{pending}</b> por comprar.
-      </div>
-      {groups.map((g) => (
-      <div key={g.sec} className="col" style={{ gap: 4 }}>
-      <b className="small" style={{ marginTop: 4 }}>{g.sec}</b>
-      <div className="list">
-        {g.items.map((it) => {
-          const on = checked.includes(it.food.id);
-          const home = data.pantry.includes(it.food.id);
-          return (
-            <label key={it.food.id} className="list-item" style={{ cursor: 'pointer' }}>
-              <input type="checkbox" checked={on} onChange={() => toggle(it.food.id)} style={{ width: 22, height: 22, accentColor: 'var(--primary)' }} />
-              <span className="thumb" style={{ width: 30, height: 30 }}>
-                {CATEGORY_ICONS[it.food.categoria]}
-              </span>
-              <span className="grow col" style={{ gap: 1, textDecoration: on ? 'line-through' : undefined, opacity: on ? 0.6 : 1 }}>
-                <span className="ttl">{shortName(it.food)}</span>
-                <span className="tiny muted">
-                  {it.food.marca ? `${it.food.marca} · ` : ''}
-                  {it.comidas} comida{it.comidas === 1 ? '' : 's'}
-                  {home && <span className="badge ok" style={{ marginLeft: 6 }}>en casa</span>}
-                </span>
-              </span>
-              <b className="small" style={{ whiteSpace: 'nowrap' }}>
-                {qtyText(it)}
-              </b>
-            </label>
-          );
-        })}
-      </div>
-      </div>
-      ))}
-      <div className="btn-row">
-        <button
-          className="btn primary small"
-          onClick={async () => {
-            const r = await shareText(listText(), title);
-            onToast(r === 'copied' ? 'Lista copiada' : r === 'shared' ? 'Lista compartida' : 'No se pudo compartir');
-          }}
-        >
-          📤 Compartir lista
-        </button>
-        <button
-          className="btn small"
-          disabled={!checked.length}
-          onClick={() => {
-            setPantry([...new Set([...data.pantry, ...checked])]);
-            // y si se lleva la despensa, lo comprado suma al stock
-            if (data.stock.config.desde) {
-              const bought = items.filter((it) => checked.includes(it.food.id));
-              stockApply({
-                items: bought.map((it) => data.stock.items[it.food.id] ?? foodItem(it.food, todayKey())),
-                events: bought.map((it) => ev(it.food.id, 'delta', { valor: it.unit === 'unidad' ? (it.unidades ?? 0) : it.comprar }, 'compra')),
-              });
-            }
-            setShoppingChecked([]);
-            onToast(data.stock.config.desde ? 'Comprado: sumado a la despensa' : 'Marcados añadidos a “Tengo en casa”');
-          }}
-        >
-          🏠 Comprados → despensa
-        </button>
-        <button className="btn small" disabled={!checked.length} onClick={() => setShoppingChecked([])}>
-          Desmarcar todo
-        </button>
-      </div>
-      <div className="tiny muted">Las especias no aparecen: no se contabilizan. Revisa formatos (bote, bandeja) al comprar.</div>
-    </>
   );
 }
 

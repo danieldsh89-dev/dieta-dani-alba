@@ -50,16 +50,18 @@ export function Segmented<T extends string>({
   options,
   onChange,
   full,
+  className = '',
 }: {
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
   full?: boolean;
+  className?: string;
 }) {
   return (
-    <div className={`seg ${full ? 'full' : ''}`}>
+    <div className={`seg ${full ? 'full' : ''} ${className}`} role="tablist">
       {options.map((o) => (
-        <button key={o.value} className={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)} type="button">
+        <button key={o.value} className={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)} type="button" role="tab" aria-selected={o.value === value}>
           {o.label}
         </button>
       ))}

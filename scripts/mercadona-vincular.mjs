@@ -8,7 +8,7 @@
  *    (o sin argumento, si usas mercadona-cli: lee ~/.mercadona/token.json)
  *
  * Genera un código "MERCA1:…" y una página con un QR para escanearlo desde la app
- * (Más → Mercadona → Escanear QR del PC). Después la app renueva la sesión sola.
+ * (Casa → Inicio → Cuenta de Mercadona → Escanear QR del PC). Después la app renueva la sesión sola.
  *
  * Seguridad: el código equivale a tu sesión. La página se guarda en la carpeta temporal
  * y se borra sola a los 10 minutos. Borra también el archivo HAR cuando termines.
@@ -92,7 +92,7 @@ const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>
 <style>body{font-family:system-ui;max-width:640px;margin:32px auto;padding:0 16px;color:#1d2420}textarea{width:100%;height:110px;font-size:12px}
 .qr{text-align:center;margin:20px 0}.warn{background:#fff3dc;color:#8a5a00;padding:10px;border-radius:8px}</style></head><body>
 <h2>🛒 Vincular la app con Mercadona</h2>
-<p>En el móvil: <b>Más → Mercadona → 📷 Escanear QR del PC</b>.</p>
+<p>En el móvil: <b>Casa → Inicio → Cuenta de Mercadona → 📷 Escanear QR del PC</b>.</p>
 <div class="qr"><img src="${qr}" alt="QR de vinculación"></div>
 <p>¿No puedes escanear? Copia este código, envíatelo al móvil y pégalo en “…o pega el código”:</p>
 <textarea readonly onclick="this.select()">${code}</textarea>

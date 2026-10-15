@@ -34,7 +34,8 @@ React 18 + TypeScript + Vite 5, vite-plugin-pwa, vitest. Capacitor 6 (APK): `@ca
 - Voz: reglas (gratis, sin IA, sin conexión). Lo que cambia plan/diario se confirma antes y tiene ↺ Deshacer.
 
 ## Estado y pendientes (2026-10-15)
-- Última versión: 1.8.3 (commit local `1d236ae`). **1.8.2 y 1.8.3 aún sin publicar en GitHub** (v1.8.1 es la última release).
+- Última versión: 1.9.0 (rediseño premium: Geist + Fraunces autoalojadas en `src/assets/fonts`, iconos SVG en `components/icons.tsx`, tokens en `styles.css`, anillos de kcal en Hoy). **1.8.2, 1.8.3 y 1.9.0 aún sin publicar en GitHub** (v1.8.1 es la última release). Diseño aprobado por el usuario.
+- Versión de prueba instalable junto a la normal: `npm run apk:nuevo` (app "D&A Nuevo", applicationId `.nuevo`, datos separados). Útil para que el usuario pruebe cambios grandes sin tocar su app.
 - Guía de uso (documento compartible): https://claude.ai/code/artifact/7e156ca0-6773-4a8a-8d33-cef32fc4da3d — actualizada hasta 1.8.1 (falta: repetir comidas varios días, hidrato distinto comida/cena).
 - Despensa antigua (Telegram + Supabase aparte): bot desconectado; faltan por hacer al usuario pausar su proyecto Supabase, borrar el activador del script de Gmail y el conector de claude.ai.
 - Ideas propuestas y pendientes de elegir: temporizadores con nombre que avisen con el móvil bloqueado, cocinar manos libres con lectura en voz alta, preguntas con respuesta hablada ("¿cuánto me queda hoy?"), calculadora crudo↔cocinado, recordatorios por voz, contador de agua, modo "en el súper", más accesos directos y botones en notificaciones.

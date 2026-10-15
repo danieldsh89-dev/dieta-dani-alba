@@ -344,3 +344,8 @@ La pestaña **Casa** es ahora la sección de la casa, con cinco apartados:
 Plan se queda con *Semana* y *Cocinar*, con un acceso a “Lo que falta para el plan”. Las órdenes de voz “qué hay que comprar” / “carga el carrito” abren la Lista / el Carrito de Casa.
 
 Código: `src/lib/compra.ts` (lista unificada, tests en `compra.test.ts`), `src/screens/CasaCompra.tsx`, `src/screens/CasaScreen.tsx`.
+
+### v1.10.1
+- **Letra grande del móvil**: si el sistema tiene el tamaño de letra aumentado, nada se corta (cabecera, barra inferior, pestañas, botones y anillos de kcal se adaptan; la cifra va dentro del anillo y “de … kcal · quedan …” debajo).
+- **Móviles con el WebView sin actualizar** (Android System WebView < 111): ya se ven los anillos, las barras, las pestañas y los fondos (antes usaban `color-mix`, que esas versiones no entienden).
+- Asistente: “hoy he comido el B1” va siempre al bloque del código (B), aunque se diga por la noche.

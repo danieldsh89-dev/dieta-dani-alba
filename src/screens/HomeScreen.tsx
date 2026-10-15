@@ -573,6 +573,7 @@ function KcalRing({ pid, value, max }: { pid: ProfileId; value: number; max: num
   const over = value > max * 1.05;
   const left = Math.round(max - value);
   return (
+    <div className="ring-wrap">
     <div className={`ring ${pid} ${over ? 'over' : ''}`} role="img" aria-label={`${round(value)} de ${max} kcal`}>
       <svg viewBox="0 0 108 108">
         <circle className="track" cx="54" cy="54" r={r} fill="none" strokeWidth="8" />
@@ -591,9 +592,14 @@ function KcalRing({ pid, value, max }: { pid: ProfileId; value: number; max: num
       </svg>
       <div className="ring-center">
         <span className="big">{round(value)}</span>
-        <span className="of">de {max} kcal</span>
+        <span className="of">kcal</span>
       </div>
-      <div className="ring-left">{left >= 0 ? `quedan ${left}` : `+${-left} de más`}</div>
+    </div>
+      {/* fuera del anillo: con la letra grande del móvil no cabría dentro */}
+      <div className={`ring-caption ${over ? 'over' : ''}`}>
+        <span>de {max} kcal</span>
+        <b>{left >= 0 ? `quedan ${left}` : `+${-left} de más`}</b>
+      </div>
     </div>
   );
 }

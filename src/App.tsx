@@ -212,7 +212,7 @@ export default function App() {
         : tab === 'generar'
         ? 'Generador A/B/C'
         : tab === 'casa'
-          ? 'Casa y compra'
+          ? 'Casa'
           : tab === 'favoritos'
             ? 'Favoritos'
             : moreItem?.title ?? 'Más';

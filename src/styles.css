@@ -54,6 +54,29 @@
   --chart-dani: #3b67a3;
   --chart-alba: #ad4a77;
 
+  /* mezclas ya calculadas (sin color-mix: los WebView antiguos no lo entienden) */
+  --primary-a07: rgba(46, 106, 78, 0.07);
+  --primary-a10: rgba(46, 106, 78, 0.1);
+  --primary-a14: rgba(46, 106, 78, 0.14);
+  --primary-a16: rgba(46, 106, 78, 0.16);
+  --primary-a25: rgba(46, 106, 78, 0.25);
+  --primary-a28: rgba(46, 106, 78, 0.28);
+  --primary-a45: rgba(46, 106, 78, 0.45);
+  --primary-soft-hover: #bfd3c6;
+  --tile-top: #ebf2ea;
+  --soft-fade: #f0f4ed;
+  --muted-a75: rgba(107, 110, 102, 0.75);
+  --muted-a35: rgba(107, 110, 102, 0.35);
+  --mbc-a25: rgba(211, 155, 58, 0.25);
+  --line-strong: #aeaca2;
+  --dani-a09: rgba(59, 103, 163, 0.09);
+  --alba-a09: rgba(173, 74, 119, 0.09);
+  --dani-a45: rgba(59, 103, 163, 0.45);
+  --bad-a22: rgba(179, 64, 47, 0.22);
+  --bad-a45: rgba(179, 64, 47, 0.45);
+  --press: #eeeae1;
+  --bg-glass: rgba(244, 241, 234, 0.82);
+
   /* forma */
   --radius: 20px;
   --radius-md: 14px;
@@ -126,6 +149,28 @@
     --mb-f: #cf7f9f;
     --chart-dani: #6f9bd6;
     --chart-alba: #cf7f9f;
+
+    --primary-a07: rgba(116, 194, 154, 0.07);
+    --primary-a10: rgba(116, 194, 154, 0.1);
+    --primary-a14: rgba(116, 194, 154, 0.14);
+    --primary-a16: rgba(116, 194, 154, 0.16);
+    --primary-a25: rgba(116, 194, 154, 0.25);
+    --primary-a28: rgba(116, 194, 154, 0.28);
+    --primary-a45: rgba(116, 194, 154, 0.45);
+    --primary-soft-hover: #2d4a3a;
+    --tile-top: #1a271f;
+    --soft-fade: #19241e;
+    --muted-a75: rgba(151, 155, 146, 0.75);
+    --muted-a35: rgba(151, 155, 146, 0.35);
+    --mbc-a25: rgba(217, 170, 82, 0.25);
+    --line-strong: #5b6059;
+    --dani-a09: rgba(132, 169, 220, 0.09);
+    --alba-a09: rgba(220, 144, 179, 0.09);
+    --dani-a45: rgba(132, 169, 220, 0.45);
+    --bad-a22: rgba(229, 127, 108, 0.22);
+    --bad-a45: rgba(229, 127, 108, 0.45);
+    --press: #242925;
+    --bg-glass: rgba(15, 18, 16, 0.82);
     --shadow: 0 1px 0 rgba(255, 255, 240, 0.035) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.6);
     --shadow-lg: 0 1px 0 rgba(255, 255, 240, 0.05) inset, 0 28px 56px -20px rgba(0, 0, 0, 0.75);
     --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 8px 18px -10px rgba(116, 194, 154, 0.55);
@@ -144,11 +189,12 @@ html {
 }
 body {
   margin: 0;
+  min-height: 100vh;
   min-height: 100dvh;
   background-color: var(--bg);
   /* grano muy sutil: rompe la planitud digital */
   background-image:
-    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 60%),
+    radial-gradient(120% 60% at 50% -10%, var(--primary-a07), transparent 60%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.35 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-attachment: fixed;
 }
@@ -194,12 +240,13 @@ strong {
   border-radius: 6px;
 }
 ::selection {
-  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  background: var(--primary-a28);
 }
 
 .app {
   max-width: 640px;
   margin: 0 auto;
+  min-height: 100vh;
   min-height: 100dvh;
   padding-bottom: calc(var(--nav-h) + 30px + env(safe-area-inset-bottom));
 }
@@ -215,7 +262,7 @@ strong {
   gap: 8px;
   padding: 10px 14px 10px 18px;
   padding-top: calc(10px + env(safe-area-inset-top));
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  background: var(--bg-glass);
   -webkit-backdrop-filter: blur(18px) saturate(1.5);
   backdrop-filter: blur(18px) saturate(1.5);
   border-bottom: 1px solid var(--hair);
@@ -329,11 +376,11 @@ strong {
   height: 7px;
   border-radius: 50%;
   background: var(--mb-c);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mb-c) 25%, transparent);
+  box-shadow: 0 0 0 2px var(--mbc-a25);
 }
 .weight-toggle.cocinado .wt-v i {
   background: var(--primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent);
+  box-shadow: 0 0 0 2px var(--primary-a25);
 }
 @media (max-width: 400px) {
   .topbar {
@@ -593,7 +640,7 @@ hr {
 }
 .btn:hover {
   background: var(--card-2);
-  border-color: color-mix(in srgb, var(--line) 60%, var(--muted));
+  border-color: var(--line-strong);
 }
 .btn:active {
   transform: scale(0.97) translateY(1px);
@@ -615,11 +662,11 @@ hr {
   font-weight: 620;
 }
 .btn.soft:hover {
-  background: color-mix(in srgb, var(--primary-soft) 80%, var(--primary));
+  background: var(--primary-soft-hover);
 }
 .btn.danger {
   color: var(--bad);
-  border-color: color-mix(in srgb, var(--bad) 22%, transparent);
+  border-color: var(--bad-a22);
 }
 .btn.danger:hover {
   background: var(--bad-soft);
@@ -682,7 +729,7 @@ hr {
 /* ───────────────────────── Segmentado ───────────────────────── */
 .seg {
   display: inline-flex;
-  background: color-mix(in srgb, var(--line) 75%, transparent);
+  background: var(--line);
   border-radius: 12px;
   padding: 3px;
   gap: 2px;
@@ -736,7 +783,7 @@ hr {
   transition: background var(--t) var(--ease), border-color var(--t) var(--ease), color var(--t) var(--ease), transform 120ms var(--ease);
 }
 .chip:hover {
-  border-color: color-mix(in srgb, var(--line) 50%, var(--muted));
+  border-color: var(--line-strong);
 }
 .chip:active {
   transform: scale(0.96);
@@ -749,17 +796,17 @@ hr {
 }
 .chip.want {
   background: var(--dani-soft);
-  border-color: color-mix(in srgb, var(--dani) 45%, transparent);
+  border-color: var(--dani-a45);
   color: var(--dani);
 }
 .chip.avoid {
   background: var(--bad-soft);
-  border-color: color-mix(in srgb, var(--bad) 45%, transparent);
+  border-color: var(--bad-a45);
   color: var(--bad);
 }
 .chip.have {
   background: var(--primary-soft);
-  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  border-color: var(--primary-a45);
   color: var(--primary);
 }
 
@@ -789,7 +836,7 @@ hr {
   color: var(--bad);
 }
 .badge.info {
-  background: color-mix(in srgb, var(--line) 80%, transparent);
+  background: var(--line);
   color: var(--muted);
 }
 .badge.dani {
@@ -848,19 +895,19 @@ textarea {
 }
 input::placeholder,
 textarea::placeholder {
-  color: color-mix(in srgb, var(--muted) 75%, transparent);
+  color: var(--muted-a75);
 }
 input:hover,
 select:hover,
 textarea:hover {
-  border-color: color-mix(in srgb, var(--line) 55%, var(--muted));
+  border-color: var(--line-strong);
 }
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 16%, transparent);
+  box-shadow: 0 0 0 4px var(--primary-a16);
 }
 input[type='search'] {
   padding-left: 36px;
@@ -1038,7 +1085,7 @@ input[type='range'] {
 /* ───────────────────────── Progreso ───────────────────────── */
 .progress {
   height: 6px;
-  background: color-mix(in srgb, var(--line) 85%, transparent);
+  background: var(--line);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -1077,7 +1124,7 @@ input[type='range'] {
   color: var(--bad);
 }
 .warning.info {
-  background: color-mix(in srgb, var(--line) 70%, transparent);
+  background: var(--line);
   color: var(--muted);
 }
 
@@ -1086,8 +1133,8 @@ input[type='range'] {
   padding: 18px 16px 16px;
   gap: 14px;
   background:
-    radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--dani) 9%, transparent), transparent 55%),
-    radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(--alba) 9%, transparent), transparent 55%),
+    radial-gradient(90% 120% at 0% 0%, var(--dani-a09), transparent 55%),
+    radial-gradient(90% 120% at 100% 0%, var(--alba-a09), transparent 55%),
     var(--card);
 }
 .day-people {
@@ -1126,7 +1173,7 @@ input[type='range'] {
   transform: rotate(-90deg);
 }
 .ring .track {
-  stroke: color-mix(in srgb, var(--line) 85%, transparent);
+  stroke: var(--line);
 }
 .ring .bar {
   transition: stroke-dashoffset 0.9s var(--spring);
@@ -1201,8 +1248,8 @@ input[type='range'] {
   height: 46px;
   flex: none;
   border-radius: 14px;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--primary-soft) 70%, var(--card)), var(--primary-soft));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 14%, transparent) inset;
+  background: linear-gradient(160deg, var(--tile-top), var(--primary-soft));
+  box-shadow: 0 0 0 1px var(--primary-a14) inset;
   color: var(--primary);
   font-family: var(--font-display);
   font-style: italic;
@@ -1282,7 +1329,7 @@ input[type='range'] {
   height: 4px;
   margin-left: -19px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  background: var(--muted-a35);
 }
 @keyframes up {
   from {
@@ -1356,7 +1403,7 @@ input[type='range'] {
   background: var(--card-2);
 }
 .list-item:active {
-  background: color-mix(in srgb, var(--card-2) 50%, var(--line));
+  background: var(--press);
 }
 .list-item:last-child {
   border-bottom: none;
@@ -1741,8 +1788,8 @@ input[type='range'] {
   border-radius: var(--radius-md);
   padding: 12px 14px;
   cursor: pointer;
-  background: linear-gradient(120deg, var(--primary-soft), color-mix(in srgb, var(--primary-soft) 55%, var(--card)));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 14%, transparent) inset;
+  background: linear-gradient(120deg, var(--primary-soft), var(--soft-fade));
+  box-shadow: 0 0 0 1px var(--primary-a14) inset;
   transition: transform 120ms var(--ease), filter var(--t) var(--ease);
 }
 .voice-cta:hover {
@@ -1827,7 +1874,7 @@ input[type='range'] {
 }
 .casa-hero {
   background:
-    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%),
+    radial-gradient(120% 140% at 100% 0%, var(--primary-a10), transparent 60%),
     var(--card);
 }
 .tiles {
@@ -1969,4 +2016,104 @@ input[type='range'] {
 .seg.full.five button {
   padding: 8px 2px;
   font-size: 0.8rem;
+}
+
+
+/* ───────────────────────── Letra grande del sistema (Android) ─────────────────────────
+   El móvil puede agrandar todos los textos: nada depende de que quepan en un ancho fijo. */
+.btn {
+  white-space: normal;
+  line-height: 1.2;
+  text-align: center;
+}
+.btn > svg,
+.btn > .ico {
+  flex: none;
+}
+.topbar .brand {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.topbar-actions {
+  flex: none;
+}
+.weight-toggle {
+  min-width: 0;
+  padding: 3px 9px 4px;
+}
+.bottomnav button {
+  flex: 1 1 auto;
+  padding: 0 3px;
+}
+.bottomnav button > span:last-child,
+.bottomnav button {
+  white-space: nowrap;
+}
+.seg.full {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.seg.full::-webkit-scrollbar {
+  display: none;
+}
+.seg.full button {
+  flex: 1 0 auto;
+}
+.ring-center .of {
+  max-width: 82%;
+  text-align: center;
+  line-height: 1.15;
+}
+.tile-v {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 380px) {
+  .brand-mark {
+    display: none;
+  }
+  .topbar h1 {
+    font-size: 1.12rem;
+  }
+  .bottomnav button {
+    font-size: 0.62rem;
+  }
+  .bottomnav-inner {
+    padding: 5px;
+    gap: 0;
+  }
+}
+
+/* anillo: dentro solo la cifra; el resto debajo (con letra grande no cabría dentro) */
+.ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.ring {
+  margin-bottom: 0;
+  max-width: 100%;
+}
+.ring-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  line-height: 1.25;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.ring-caption b {
+  font-weight: 620;
+}
+.ring-caption.over b {
+  color: var(--warn);
+}
+.stat-line {
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+.stat-line span {
+  white-space: nowrap;
 }

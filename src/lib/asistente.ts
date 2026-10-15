@@ -54,12 +54,12 @@ export function fechaDe(t: string, hoy: string): string {
   return hoy;
 }
 
-/** Bloque dicho o deducido del verbo */
-export function bloqueDe(t: string): Block | undefined {
+/** Bloque dicho o deducido del verbo ("he comido" → según la hora, salvo `porHora` = false) */
+export function bloqueDe(t: string, porHora = true): Block | undefined {
   if (/\b(desayun\w*|merienda)\b/.test(t)) return 'A';
   if (/\b(cena|cenas|cenado|cenamos|cenar|ceno|cene)\b/.test(t)) return 'C';
   if (/\b(comida|comidas|almuerzo|almorzado|almorzamos|almorzar|mediodia)\b/.test(t)) return 'B';
-  if (/\b(comido|comimos|comemos)\b/.test(t)) {
+  if (porHora && /\b(comido|comimos|comemos)\b/.test(t)) {
     const h = new Date().getHours();
     return h < 11 ? 'A' : h < 18 ? 'B' : 'C';
   }
@@ -190,7 +190,10 @@ export function parseOrden(text: string, d: AppData, foods: Food[], hoy: string)
 
   // poner / registrar una comida (favorito)
   if (/\b(he|hemos|ha) (comido|cenado|desayunado|almorzado)\b|\b(pon|ponme|pone|apunta|anade|planifica|mete)\b/.test(t)) {
-    const b = bloqueDe(t);
+    // un código de favorito ("el B1") manda sobre el bloque deducido de la hora; el dicho ("la cena") manda siempre
+    const dicho = bloqueDe(t, false);
+    const conCodigo = /\b[abc] ?\d{1,2}\b/.test(t);
+    const b = conCodigo ? dicho : (dicho ?? bloqueDe(t));
     const favs = matchFavorites(t, d.favorites, foods, b);
     if (favs.length) {
       const who = personaDe(t, d);

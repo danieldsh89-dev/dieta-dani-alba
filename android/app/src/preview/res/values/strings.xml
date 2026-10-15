@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Versión de prueba (npm run apk:nuevo): otro nombre para distinguirla de la normal -->
+<resources>
+    <string name="app_name">D&amp;A Nuevo</string>
+    <string name="title_activity_main">D&amp;A Nuevo</string>
+</resources>

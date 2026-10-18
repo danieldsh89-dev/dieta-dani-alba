@@ -196,7 +196,6 @@ body {
   background-image:
     radial-gradient(120% 60% at 50% -10%, var(--primary-a07), transparent 60%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.35 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-attachment: fixed;
 }
 button,
 input,
@@ -418,9 +417,11 @@ strong {
   flex-direction: column;
   gap: 14px;
 }
-/* entrada escalonada al cambiar de pantalla */
+/* entrada escalonada al cambiar de pantalla.
+   "backwards" y no "both": un transform que se queda aplicado al terminar convierte cada bloque en
+   el contenedor de las ventanas (position: fixed) que se abren dentro, y quedan descolocadas. */
 .screen > * {
-  animation: rise 0.48s var(--ease) both;
+  animation: rise 0.48s var(--ease) backwards;
 }
 .screen > *:nth-child(2) {
   animation-delay: 40ms;
@@ -1292,8 +1293,6 @@ input[type='range'] {
   inset: 0;
   overscroll-behavior: contain;
   background: var(--backdrop);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
   z-index: var(--z-sheet);
   display: flex;
   align-items: flex-end;
@@ -1310,8 +1309,8 @@ input[type='range'] {
   background: var(--bg);
   width: 100%;
   max-width: 640px;
-  max-height: 92vh;
-  max-height: 92dvh;
+  /* % del fondo, que se ajusta a la parte visible de la pantalla (con el teclado abierto, encima de él) */
+  max-height: 92%;
   border-radius: 26px 26px 0 0;
   display: flex;
   flex-direction: column;
@@ -1373,7 +1372,7 @@ input[type='range'] {
   }
   .sheet {
     border-radius: 26px;
-    max-height: 86dvh;
+    max-height: 86%;
   }
 }
 
@@ -2116,4 +2115,12 @@ input[type='range'] {
 }
 .stat-line span {
   white-space: nowrap;
+}
+
+/* buscador fijo arriba de la ventana mientras se baja por la lista */
+.sheet-body .sticky-search {
+  position: sticky;
+  top: -14px;
+  z-index: 2;
+  box-shadow: 0 -14px 0 var(--bg), 0 8px 12px -10px rgba(40, 30, 10, 0.25);
 }

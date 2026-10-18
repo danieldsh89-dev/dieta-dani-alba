@@ -349,3 +349,8 @@ Código: `src/lib/compra.ts` (lista unificada, tests en `compra.test.ts`), `src/
 - **Letra grande del móvil**: si el sistema tiene el tamaño de letra aumentado, nada se corta (cabecera, barra inferior, pestañas, botones y anillos de kcal se adaptan; la cifra va dentro del anillo y “de … kcal · quedan …” debajo).
 - **Móviles con el WebView sin actualizar** (Android System WebView < 111): ya se ven los anillos, las barras, las pestañas y los fondos (antes usaban `color-mix`, que esas versiones no entienden).
 - Asistente: “hoy he comido el B1” va siempre al bloque del código (B), aunque se diga por la noche.
+
+### v1.10.2
+- **Ventanas que se descolocaban** (elegir ingredientes en el generador, añadir/quitar ingredientes al modificar una comida generada): la animación de entrada de las pantallas dejaba aplicado un `transform` y las ventanas se colocaban dentro de la tarjeta en vez de en la pantalla; el teclado las tapaba y el desplazamiento se quedaba pillado. Ahora las ventanas y el modo cocinar se dibujan directamente en la página.
+- Con el teclado abierto, la ventana se ajusta a la parte visible de la pantalla y el campo en el que escribes queda a la vista; el buscador de alimentos se queda fijo arriba al bajar por la lista.
+- Desplazamiento más fluido en Android (sin fondo fijo ni desenfoque detrás de las ventanas).

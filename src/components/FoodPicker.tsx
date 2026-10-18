@@ -36,7 +36,7 @@ export function FoodPickerList({
   }, [activeFoods, q, cat]);
   return (
     <div className="col">
-      <input type="search" placeholder="Buscar alimento…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className="sticky-search" type="search" placeholder="Buscar alimento…" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="chips">
         <button className={`chip ${cat === 'todas' ? 'on' : ''}`} onClick={() => setCat('todas')}>
           Todas

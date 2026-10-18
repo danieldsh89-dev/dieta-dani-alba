@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { BlockTarget, Food, Nutrients, ProfileId } from '../types';
 import { rangeStatus, round, type RangeStatus } from '../lib/nutrition';
 import { useStore } from '../store/AppStore';
@@ -27,8 +28,33 @@ export function Sheet({ title, onClose, children, actions }: { title: string; on
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
-    <div className="sheet-backdrop" onClick={onClose}>
+  // con el teclado abierto, la ventana ocupa solo la parte visible de la pantalla (encima del teclado)
+  const backdropRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const el = backdropRef.current;
+    if (!vv || !el) return;
+    const fit = () => {
+      el.style.top = `${vv.offsetTop}px`;
+      el.style.height = `${vv.height}px`;
+      el.style.bottom = 'auto';
+    };
+    fit();
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    return () => {
+      vv.removeEventListener('resize', fit);
+      vv.removeEventListener('scroll', fit);
+    };
+  }, []);
+  // el campo en el que se escribe se queda a la vista
+  const onFocus = (e: React.FocusEvent) => {
+    const t = e.target as HTMLElement;
+    if (t.matches('input, textarea, select')) setTimeout(() => t.scrollIntoView({ block: 'nearest' }), 350);
+  };
+  // se dibuja en <body>: así ninguna tarjeta (con transform, filtros…) la descoloca ni la recorta
+  return createPortal(
+    <div className="sheet-backdrop" ref={backdropRef} onClick={onClose} onFocus={onFocus}>
       <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="sheet-head">
           <h2>{title}</h2>
@@ -41,7 +67,8 @@ export function Sheet({ title, onClose, children, actions }: { title: string; on
         </div>
         <div className="sheet-body">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

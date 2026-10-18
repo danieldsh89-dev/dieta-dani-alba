@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Meal, WeightView } from '../types';
 import { PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
@@ -49,7 +50,7 @@ export function CookMode({ meal, onClose }: { meal: Meal; onClose: () => void })
       return n;
     });
 
-  return (
+  return createPortal(
     <div className="cook" role="dialog" aria-label="Modo cocinar">
       <div className="row between">
         <h2 style={{ fontSize: '1.2rem' }}>👨‍🍳 {meal.nombre}</h2>
@@ -121,7 +122,8 @@ export function CookMode({ meal, onClose }: { meal: Meal; onClose: () => void })
       )}
       <CookTimer />
       <div className="tiny muted">La pantalla se mantiene encendida mientras estás en este modo (si el móvil lo permite).</div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

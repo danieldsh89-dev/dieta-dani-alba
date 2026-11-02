@@ -100,4 +100,12 @@ export const SEED_CONVERSIONS: CookingConversion[] = [
     metodos: [{ id: 'cocidos', nombre: 'Cocidos', factor: 1.05 }],
     metodoPorDefecto: 'cocidos',
   },
+  {
+    id: 'verdura_congelada',
+    nombre: 'Verduras congeladas (salteadas)',
+    estadoInicial: 'congeladas',
+    metodos: [{ id: 'salteadas', nombre: 'Salteadas', factor: 0.85 }],
+    metodoPorDefecto: 'salteadas',
+    nota: 'Aproximado: pierden agua al saltearlas. Calíbralo pesando antes y después.',
+  },
 ];

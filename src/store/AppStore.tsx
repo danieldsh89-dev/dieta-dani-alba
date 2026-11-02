@@ -48,6 +48,8 @@ interface Store {
   duplicateFood: (id: string) => Food | undefined;
   setArchived: (id: string, archived: boolean) => void;
   saveConversion: (c: CookingConversion) => void;
+  /** borra una conversión creada por el usuario (las de la base vuelven a aparecer) */
+  removeConversion: (id: string) => void;
   saveProfile: (p: Profile) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   addFavorite: (meal: Meal) => Favorite;
@@ -177,6 +179,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       const conversions = exists ? d.conversions.map((x) => (x.id === c.id ? c : x)) : [...d.conversions, c];
       return touch({ ...d, conversions }, [key('conv', c.id)]);
     });
+  }, []);
+
+  const removeConversion = useCallback((id: string) => {
+    setData((d) => tombstone({ ...d, conversions: d.conversions.filter((c) => c.id !== id) }, [key('conv', id)]));
   }, []);
 
   const saveProfile = useCallback((p: Profile) => {
@@ -615,6 +621,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     duplicateFood,
     setArchived,
     saveConversion,
+    removeConversion,
     saveProfile,
     updateSettings,
     addFavorite,

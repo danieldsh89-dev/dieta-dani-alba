@@ -111,6 +111,8 @@ export interface CookingConversion {
   metodos: CookingMethod[];
   metodoPorDefecto: string;
   nota?: string;
+  /** conversión propia de un alimento (id del alimento): se edita desde su ficha y no se comparte */
+  propiaDe?: string;
 }
 
 export interface BlockTarget {
@@ -183,6 +185,8 @@ export interface Meal {
   para?: ProfileId;
   /** las cantidades se han corregido a lo que realmente se comió */
   ajustadoReal?: boolean;
+  /** cómo ver los pesos de esta comida (si no, el ajuste general "pesos") */
+  vista?: WeightView;
 }
 
 export interface Favorite extends Meal {

@@ -2124,3 +2124,40 @@ input[type='range'] {
   z-index: 2;
   box-shadow: 0 -14px 0 var(--bg), 0 8px 12px -10px rgba(40, 30, 10, 0.25);
 }
+
+/* ficha del alimento: crudo y cocinado */
+.coccion {
+  gap: 9px;
+}
+.coccion-metodo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+.coccion-metodo .rm {
+  margin-bottom: 9px;
+}
+.coccion-ejemplo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.86rem;
+}
+.coccion-ejemplo span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+/* selector de pesos de cada comida */
+.meal-vista {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.meal-vista .seg button {
+  padding: 5px 10px;
+}

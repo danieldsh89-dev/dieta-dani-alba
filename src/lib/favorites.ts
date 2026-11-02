@@ -21,6 +21,7 @@ export function favoriteToMeal(f: Favorite): Meal {
     notas: f.notas,
     origen: 'favorito',
     ...(f.para ? { para: f.para } : {}),
+    ...(f.vista ? { vista: f.vista } : {}),
   };
 }
 

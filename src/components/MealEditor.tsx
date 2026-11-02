@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { BlockTarget, Category, Meal, ProfileId } from '../types';
+import type { BlockTarget, Category, Meal, ProfileId, WeightView } from '../types';
 import { PROFILE_IDS } from '../types';
 import { useStore } from '../store/AppStore';
 import {
@@ -19,7 +19,7 @@ import { CookMode } from './CookMode';
 import { mergeDuplicates } from '../lib/substitutions';
 import { FoodPickerList } from './FoodPicker';
 import { SubstituteSheet } from './SubstituteSheet';
-import { NumberInput, Sheet, TotalsBox, VerificationBadge, Warnings } from './ui';
+import { NumberInput, Segmented, Sheet, TotalsBox, VerificationBadge, Warnings } from './ui';
 
 /**
  * Tabla de una comida con cantidades de Dani y Alba.
@@ -47,7 +47,10 @@ export function MealEditor({
 }) {
   const { data, fm, cm, genCtx } = useStore();
   const [cooking, setCooking] = useState(false);
-  const view = data.settings.mostrarPesos;
+  // crudo o cocinado: lo elegido en esta comida (se guarda con ella) o el ajuste general "pesos"
+  const [localView, setLocalView] = useState<WeightView | undefined>();
+  const view: WeightView = meal.vista ?? localView ?? data.settings.mostrarPesos;
+  const setView = (v: WeightView) => (onChange ? onChange({ ...meal, vista: v }) : setLocalView(v));
   const [actionIdx, setActionIdx] = useState<number | null>(null);
   const [substIdx, setSubstIdx] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
@@ -109,9 +112,20 @@ export function MealEditor({
 
   return (
     <div className="col">
+      <div className="row between meal-vista">
+        <span className="tiny muted">Pesos de esta comida</span>
+        <Segmented
+          value={view}
+          options={[
+            { value: 'crudo', label: 'Sin cocinar' },
+            { value: 'cocinado', label: 'Cocinados' },
+          ]}
+          onChange={setView}
+        />
+      </div>
       <div className="meal-table">
         <div className={`meal-head ${single ? 'single' : ''}`}>
-          <span className="muted">Ingrediente · {view === 'crudo' ? 'pesos crudos' : 'pesos cocinados'}</span>
+          <span className="muted">Ingrediente</span>
           {cols.map((p) => (
             <span key={p} className={p}>
               {single ? `Solo ${data.profiles[p].nombre}` : data.profiles[p].nombre}
@@ -194,7 +208,7 @@ export function MealEditor({
           👨‍🍳 Modo cocinar
         </button>
       </div>
-      {cooking && <CookMode meal={meal} onClose={() => setCooking(false)} />}
+      {cooking && <CookMode meal={{ ...meal, vista: view }} onClose={() => setCooking(false)} />}
       {!hideTotals && (
         <div className="totals">
           {cols.map((p) => (
@@ -207,6 +221,7 @@ export function MealEditor({
       {actionIdx !== null && meal.items[actionIdx] && (
         <ItemActions
           meal={meal}
+          view={view}
           idx={actionIdx}
           editable={editable}
           onClose={() => setActionIdx(null)}
@@ -254,6 +269,7 @@ export function MealEditor({
 
 function ItemActions({
   meal,
+  view,
   idx,
   editable,
   onClose,
@@ -262,6 +278,7 @@ function ItemActions({
   onChange,
 }: {
   meal: Meal;
+  view: WeightView;
   idx: number;
   editable: boolean;
   onClose: () => void;
@@ -270,7 +287,6 @@ function ItemActions({
   onChange: (m: Meal) => void;
 }) {
   const { data, fm, cm } = useStore();
-  const view = data.settings.mostrarPesos;
   const it = meal.items[idx];
   const food = fm[it.foodId];
   const conv = food.conversionId ? cm[food.conversionId] : undefined;

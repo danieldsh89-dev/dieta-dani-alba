@@ -8,24 +8,40 @@ import { dayTotals, isFree, isSplit, personSlot, todayKey } from '../lib/day';
 import type { DaySlot } from '../types';
 import { round } from '../lib/nutrition';
 import { NumberInput, Sheet, Warnings } from '../components/ui';
+import { SEED_CONVERSIONS } from '../data/conversions';
 
 // ───────────────── Conversiones y calibrar cocción ─────────────────
 
 export function ConversionsScreen({ onToast }: { onToast: Toaster }) {
-  const { data, saveConversion } = useStore();
+  const { data, saveConversion, removeConversion } = useStore();
   const [calib, setCalib] = useState<{ conv: CookingConversion; methodId: string } | null>(null);
+  const [nueva, setNueva] = useState(false);
+  const base = new Set(SEED_CONVERSIONS.map((c) => c.id));
+  const usadaPor = (id: string) => data.foods.filter((f) => f.conversionId === id && !f.archivado);
   return (
     <div className="screen">
       <div className="sub">
-        Factor = peso final / peso inicial. Cambiar el factor cambia el peso mostrado, <b>nunca</b> las calorías totales.
+        Factor = peso cocinado / peso sin cocinar (×0,75: 100 g crudos son 75 g cocinados). Cambiar el factor cambia el peso mostrado,{' '}
+        <b>nunca</b> las calorías. Para un alimento concreto, lo más fácil es ponerle su conversión propia desde su ficha (Alimentos).
       </div>
-      {data.conversions.map((c) => (
+      <button className="btn primary" onClick={() => setNueva(true)}>
+        ＋ Nueva conversión
+      </button>
+      {data.conversions.map((c) => {
+        const usa = usadaPor(c.id);
+        const borrable = !base.has(c.id) && usa.length === 0;
+        return (
         <div key={c.id} className="card tight">
           <div className="row between">
-            <b>{c.nombre}</b>
+            <b>
+              {c.nombre} {c.propiaDe && <span className="badge info">propia del alimento</span>}
+            </b>
             <span className="tiny muted">desde {c.estadoInicial}</span>
           </div>
           {c.nota && <div className="tiny muted">{c.nota}</div>}
+          <div className="tiny muted">
+            {usa.length ? `La usa: ${usa.map((f) => f.nombre.split(' (')[0]).join(', ')}` : 'Ningún alimento la usa.'}
+          </div>
           {c.metodos.map((m) => (
             <div key={m.id} className="row">
               <span className="grow small">
@@ -49,6 +65,19 @@ export function ConversionsScreen({ onToast }: { onToast: Toaster }) {
               </button>
             </div>
           ))}
+          {borrable && (
+            <button
+              className="btn small danger"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() => {
+                const prev = c;
+                removeConversion(c.id);
+                onToast(`Conversión “${c.nombre}” borrada`, () => saveConversion(prev));
+              }}
+            >
+              Borrar
+            </button>
+          )}
           {c.metodos.length > 1 && (
             <label className="field">
               Método por defecto
@@ -62,7 +91,18 @@ export function ConversionsScreen({ onToast }: { onToast: Toaster }) {
             </label>
           )}
         </div>
-      ))}
+        );
+      })}
+      {nueva && (
+        <NuevaConversionSheet
+          onClose={() => setNueva(false)}
+          onSave={(c) => {
+            saveConversion(c);
+            onToast(`Conversión “${c.nombre}” creada: elígela en la ficha del alimento`);
+            setNueva(false);
+          }}
+        />
+      )}
       {calib && (
         <CalibrateSheet
           conv={calib.conv}
@@ -79,6 +119,58 @@ export function ConversionsScreen({ onToast }: { onToast: Toaster }) {
         />
       )}
     </div>
+  );
+}
+
+function NuevaConversionSheet({ onClose, onSave }: { onClose: () => void; onSave: (c: CookingConversion) => void }) {
+  const [nombre, setNombre] = useState('');
+  const [inicial, setInicial] = useState('crudo');
+  const [metodo, setMetodo] = useState('Cocinado');
+  const [cocinado, setCocinado] = useState<number | undefined>(75);
+  const ok = nombre.trim() && cocinado && cocinado > 0;
+  return (
+    <Sheet title="Nueva conversión" onClose={onClose}>
+      <label className="field">
+        Nombre
+        <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej.: Verduras a la plancha" />
+      </label>
+      <div className="grid2">
+        <label className="field">
+          Sin cocinar está…
+          <select value={inicial} onChange={(e) => setInicial(e.target.value)}>
+            {['crudo', 'seco', 'congelado', 'escurrido', 'tal cual se compra'].map((x) => (
+              <option key={x} value={x}>
+                {x}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          Forma de cocinarlo
+          <input type="text" value={metodo} onChange={(e) => setMetodo(e.target.value)} />
+        </label>
+      </div>
+      <label className="field">
+        100 g {inicial} → g cocinados
+        <NumberInput value={cocinado} onChange={setCocinado} step={1} />
+      </label>
+      {cocinado ? <div className="tiny muted">Factor ×{formatNumber(cocinado / 100, 3)}. Si lo pesas, “⚖️ Calibrar” lo calcula solo.</div> : null}
+      <button
+        className="btn primary block"
+        disabled={!ok}
+        onClick={() =>
+          onSave({
+            id: `conv_${Date.now().toString(36)}`,
+            nombre: nombre.trim(),
+            estadoInicial: inicial,
+            metodos: [{ id: 'cocinado', nombre: metodo.trim() || 'Cocinado', factor: Math.round(cocinado! * 10) / 1000, personalizado: true }],
+            metodoPorDefecto: 'cocinado',
+          })
+        }
+      >
+        Crear conversión
+      </button>
+    </Sheet>
   );
 }
 

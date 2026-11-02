@@ -10,8 +10,19 @@ import { servingToBase, toConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap } from '../lib/nutrition';
 import { emptySync, key, touch } from '../sync/docs';
 
-/** 2 = v1.3: días de entreno desactivados por defecto, comidas por persona, extras y semanas tipo */
-export const DATA_VERSION = 2;
+/**
+ * 2 = v1.3: días de entreno desactivados por defecto, comidas por persona, extras y semanas tipo
+ * 3 = v1.11: verduras congeladas de la base con conversión (pierden agua al saltearlas)
+ */
+export const DATA_VERSION = 3;
+
+/** alimentos de la base que en la v1.11 pasan a tener conversión (si el usuario no los ha tocado) */
+const CONVERSION_V3: Record<string, string> = {
+  arroz_coliflor: 'verdura_congelada',
+  pisto: 'verdura_congelada',
+  wok_verduras: 'verdura_congelada',
+  salteado_verduras: 'verdura_congelada',
+};
 
 export function buildSeedFavorites(): Favorite[] {
   const fm = toFoodMap(SEED_FOODS);
@@ -62,15 +73,29 @@ export function createSeedData(): AppData {
 
 /** Añade a los datos guardados los alimentos/conversiones nuevos de la base sin pisar ediciones del usuario. */
 export function mergeWithSeed(saved: AppData): AppData {
-  const merged = mergeRaw(saved);
-  if ((saved.version ?? 1) >= 2) return merged;
-  // Migración a v2: sin diferencias en días de entreno (el usuario puede reactivarlo en Configuración).
-  // Se marca como cambio para que también gane en la sincronización frente a perfiles antiguos.
-  const profiles = {
-    dani: { ...merged.profiles.dani, entreno: { ...merged.profiles.dani.entreno, activo: false } },
-    alba: { ...merged.profiles.alba, entreno: { ...merged.profiles.alba.entreno, activo: false } },
-  };
-  return touch({ ...merged, version: DATA_VERSION, profiles }, [key('profile', 'dani'), key('profile', 'alba')]);
+  let merged = mergeRaw(saved);
+  const v = saved.version ?? 1;
+  if (v < 2) {
+    // Migración a v2: sin diferencias en días de entreno (el usuario puede reactivarlo en Configuración).
+    // Se marca como cambio para que también gane en la sincronización frente a perfiles antiguos.
+    const profiles = {
+      dani: { ...merged.profiles.dani, entreno: { ...merged.profiles.dani.entreno, activo: false } },
+      alba: { ...merged.profiles.alba, entreno: { ...merged.profiles.alba.entreno, activo: false } },
+    };
+    merged = touch({ ...merged, profiles }, [key('profile', 'dani'), key('profile', 'alba')]);
+  }
+  if (v < 3) {
+    // Migración a v3: las verduras congeladas de la base ganan su conversión (solo si siguen como estaban)
+    const cambiados: string[] = [];
+    const foods = merged.foods.map((f) => {
+      const conv = CONVERSION_V3[f.id];
+      if (!conv || f.personalizado || f.conversionId || f.estadoNutricionalBase !== 'listo_para_consumir') return f;
+      cambiados.push(f.id);
+      return { ...f, estadoNutricionalBase: 'crudo' as const, conversionId: conv };
+    });
+    merged = touch({ ...merged, foods }, cambiados.map((id) => key('food', id)));
+  }
+  return v < DATA_VERSION ? { ...merged, version: DATA_VERSION } : merged;
 }
 
 function mergeRaw(saved: AppData): AppData {

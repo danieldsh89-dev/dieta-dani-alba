@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AppData, DayLog, Favorite, Meal, WeightEntry } from '../../types';
-import { createSeedData, mergeWithSeed } from '../../store/seed';
+import { createSeedData, DATA_VERSION, mergeWithSeed } from '../../store/seed';
 import { SEED_PROFILES } from '../../data/profiles';
 import { dayGoals, isTrainingDay, targetsForDay, weekdayIndex } from '../day';
 import { toConversionMap, baseToServing } from '../conversions';
@@ -62,7 +62,7 @@ describe('días de entreno y descanso', () => {
     const m = mergeWithSeed(old);
     expect(m.profiles.dani.entreno.activo).toBe(false);
     expect(m.profiles.alba.entreno.activo).toBe(false);
-    expect(m.version).toBe(2);
+    expect(m.version).toBe(DATA_VERSION);
     expect(m.sync.pending).toContain('profile:dani');
     // ya migrado: si el usuario lo vuelve a activar, se respeta
     const again = mergeWithSeed({ ...m, profiles: ACTIVE });

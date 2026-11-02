@@ -354,3 +354,9 @@ Código: `src/lib/compra.ts` (lista unificada, tests en `compra.test.ts`), `src/
 - **Ventanas que se descolocaban** (elegir ingredientes en el generador, añadir/quitar ingredientes al modificar una comida generada): la animación de entrada de las pantallas dejaba aplicado un `transform` y las ventanas se colocaban dentro de la tarjeta en vez de en la pantalla; el teclado las tapaba y el desplazamiento se quedaba pillado. Ahora las ventanas y el modo cocinar se dibujan directamente en la página.
 - Con el teclado abierto, la ventana se ajusta a la parte visible de la pantalla y el campo en el que escribes queda a la vista; el buscador de alimentos se queda fijo arriba al bajar por la lista.
 - Desplazamiento más fluido en Android (sin fondo fijo ni desenfoque detrás de las ventanas).
+
+## Novedades v1.11 — Crudo y cocinado a tu medida
+- **Conversión propia en la ficha de cada alimento** (Más → Alimentos): “¿Cambia de peso al cocinarlo?” → indicas si los valores son sin cocinar o ya cocinado, cómo está sin cocinar (crudo, seco, congelado, escurrido…) y cuántos gramos cocinados dan 100 g (p. ej. champiñones de lata: 100 g escurridos → 75 g cocinados). Se puede añadir más de una forma de cocinarlo. Sigue pudiéndose usar la conversión de otro alimento (compartida). Las calorías no cambian nunca: solo el peso.
+- **Crudo / cocinado** (Más): “＋ Nueva conversión”, qué alimentos usa cada una, y borrar las tuyas que no use nadie.
+- **Cada comida elige cómo ver los pesos** (“Pesos de esta comida: Sin cocinar | Cocinados”): se guarda con la comida (también en favoritos y en el modo cocinar). Sin elegir, manda el ajuste general “pesos” de arriba.
+- **Verduras congeladas de la base** (pisto, wok, salteado y arroz de coliflor) con conversión aproximada ×0,85 (calíbrala en Crudo / cocinado). Las cantidades guardadas no cambian.

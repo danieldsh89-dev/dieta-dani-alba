@@ -19,7 +19,7 @@ interface WakeLockLike {
  */
 export function CookMode({ meal, onClose }: { meal: Meal; onClose: () => void }) {
   const { data, fm, cm } = useStore();
-  const [view, setView] = useState<WeightView>(data.settings.mostrarPesos);
+  const [view, setView] = useState<WeightView>(meal.vista ?? data.settings.mostrarPesos);
   const [done, setDone] = useState<Set<number>>(new Set());
   const cols = meal.para ? [meal.para] : PROFILE_IDS;
   useBackHandler(() => {

@@ -23,6 +23,9 @@ export function calibrateFactor(rawGrams: number, cookedGrams: number): number {
   return cookedGrams / rawGrams;
 }
 
+/** id de la conversión propia de un alimento (creada desde su ficha) */
+export const ownConversionId = (foodId: string) => `own_${foodId}`;
+
 export type ConversionMap = Record<string, CookingConversion>;
 
 export function toConversionMap(list: CookingConversion[]): ConversionMap {

@@ -189,6 +189,7 @@ export const SEED_FOODS: Food[] = [
   food({
     id: 'arroz_coliflor', nombre: 'Arroz / migas de coliflor', categoria: 'hidrato',
     kcalPor100: 20, proteinaPor100: 1.9, carbohidratosPor100: 2, grasasPor100: 0.3, fibraPor100: 2,
+    estadoNutricionalBase: 'crudo', conversionId: 'verdura_congelada',
     porcionMinima: 150, porcionMaxima: 350, incremento: 25, porcionHabitual: 300,
     limitesPerfil: { alba: { habitual: 225 } },
     bloques: ['B', 'C'], tags: ['sustituto_ligero'], verificacion: 'parcial',
@@ -306,6 +307,7 @@ export const SEED_FOODS: Food[] = [
   food({
     id: 'pisto', nombre: 'Pisto ultracongelado', categoria: 'verdura',
     kcalPor100: 64, proteinaPor100: 1.5, carbohidratosPor100: 6, grasasPor100: 3.7, fibraPor100: 2,
+    estadoNutricionalBase: 'crudo', conversionId: 'verdura_congelada',
     porcionMinima: 80, porcionMaxima: 250, porcionHabitual: 150,
     limitesPerfil: { alba: { habitual: 120 } },
     bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
@@ -313,6 +315,7 @@ export const SEED_FOODS: Food[] = [
   food({
     id: 'wok_verduras', nombre: 'Wok de verduras asiático', categoria: 'verdura',
     kcalPor100: 53, proteinaPor100: 1.8, carbohidratosPor100: 6, grasasPor100: 2.2, fibraPor100: 2.5,
+    estadoNutricionalBase: 'crudo', conversionId: 'verdura_congelada',
     porcionMinima: 80, porcionMaxima: 300, porcionHabitual: 170,
     limitesPerfil: { alba: { habitual: 130 } },
     bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,
@@ -320,6 +323,7 @@ export const SEED_FOODS: Food[] = [
   food({
     id: 'salteado_verduras', nombre: 'Salteado de verduras', categoria: 'verdura',
     kcalPor100: 31, proteinaPor100: 1.6, carbohidratosPor100: 4, grasasPor100: 0.8, fibraPor100: 2.5,
+    estadoNutricionalBase: 'crudo', conversionId: 'verdura_congelada',
     porcionMinima: 80, porcionMaxima: 300, porcionHabitual: 180,
     limitesPerfil: { alba: { habitual: 140 } },
     bloques: ['B', 'C'], tags: ['provisional'], verificacion: 'aproximado', notaVerificacion: 'Salvavidas provisional. ' + APROX,

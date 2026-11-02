@@ -34,7 +34,7 @@ export function VariantSheet({
   initial?: { index: number };
 }) {
   const { data, fm, cm, genCtx, activeFoods } = useStore();
-  const view = data.settings.mostrarPesos;
+  const view = meal.vista ?? data.settings.mostrarPesos;
   const kinds = VARIANT_KINDS.filter((k) => swappable(meal, fm, k.id).length > 0);
   const [kind, setKind] = useState<VariantKind | null>(initial ? null : kinds[0]?.id ?? null);
   const [index, setIndex] = useState<number | null>(initial?.index ?? null);

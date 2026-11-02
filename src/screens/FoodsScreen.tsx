@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { MercaLinkSheet } from '../components/MercaLinkSheet';
-import type { Block, Category, Food, FoodTag, NutritionState, Unit, Verification } from '../types';
+import type { Block, Category, Food, FoodTag, Unit, Verification } from '../types';
 import { BLOCKS } from '../types';
 import { newId, useStore } from '../store/AppStore';
 import { validateFood } from '../lib/validation';
@@ -10,6 +10,7 @@ import { BarcodeScanner } from '../components/BarcodeScanner';
 import { lookupBarcode } from '../lib/openFoodFacts';
 import { resizeImage } from '../lib/image';
 import { CATEGORY_ICONS, CATEGORY_LABELS, NumberInput, Sheet, VerificationBadge, Warnings } from '../components/ui';
+import { applyCoccion, CoccionEditor, coccionDraft, type CoccionDraft } from '../components/CoccionEditor';
 
 const CATS = Object.keys(CATEGORY_LABELS) as Category[];
 
@@ -161,8 +162,9 @@ function FoodForm({
   onToast: Toaster;
   onSwitch: (f: Food) => void;
 }) {
-  const { data, saveFood, duplicateFood, setArchived } = useStore();
+  const { data, saveFood, saveConversion, removeConversion, duplicateFood, setArchived } = useStore();
   const [f, setF] = useState<Food>(structuredClone(food));
+  const [coccion, setCoccion] = useState<CoccionDraft>(() => coccionDraft(food, data.conversions));
   const [advanced, setAdvanced] = useState(!data.foods.some((x) => x.id === food.id) ? false : true);
   const isNew = !data.foods.some((x) => x.id === food.id);
   const [linking, setLinking] = useState(false);
@@ -170,12 +172,16 @@ function FoodForm({
   const set = <K extends keyof Food>(k: K, val: Food[K]) => setF((p) => ({ ...p, [k]: val }));
   const num = (k: 'kcalPor100' | 'proteinaPor100' | 'carbohidratosPor100' | 'grasasPor100' | 'porcionMinima' | 'porcionMaxima' | 'incremento' | 'porcionHabitual') =>
     (val: number | undefined) => set(k, val ?? 0);
-  const conv = f.conversionId ? data.conversions.find((c) => c.id === f.conversionId) : undefined;
-  const rangeUnit = f.unidadBase === 'unidad' ? f.nombreUnidad ?? 'unidades' : `${f.unidadBase}${conv && f.estadoNutricionalBase !== 'listo_para_consumir' ? ' cocinados' : ''}`;
+  const rangeUnit = f.unidadBase === 'unidad' ? f.nombreUnidad ?? 'unidades' : `${f.unidadBase}${coccion.cambia ? ' cocinados' : ''}`;
 
   const save = () => {
     if (v.errors.length) return;
-    saveFood({ ...f, nombre: f.nombre.trim(), marca: f.marca?.trim() || undefined });
+    const r = applyCoccion({ ...f, nombre: f.nombre.trim(), marca: f.marca?.trim() || undefined }, coccion);
+    if (r.conversion) saveConversion(r.conversion);
+    // la conversión propia que ya no se usa se borra
+    const prevOwn = data.conversions.find((c) => c.propiaDe === food.id);
+    if (prevOwn && r.food.conversionId !== prevOwn.id) removeConversion(prevOwn.id);
+    saveFood(r.food);
     onToast(isNew ? 'Producto creado' : 'Cambios guardados');
     onClose();
   };
@@ -283,15 +289,8 @@ function FoodForm({
       <div className="tiny muted">
         Kcal calculadas por macros: {Math.round(kcalFromMacros(f.proteinaPor100, f.carbohidratosPor100, f.grasasPor100))}
       </div>
+      <CoccionEditor food={f} draft={coccion} onChange={setCoccion} />
       <div className="grid2">
-        <label className="field">
-          Estado del peso (valores)
-          <select value={f.estadoNutricionalBase} onChange={(e) => set('estadoNutricionalBase', e.target.value as NutritionState)}>
-            <option value="crudo">Crudo / seco / congelado</option>
-            <option value="cocinado">Cocinado</option>
-            <option value="listo_para_consumir">Listo para consumir</option>
-          </select>
-        </label>
         <label className="field">
           Verificación
           <select value={f.verificacion} onChange={(e) => set('verificacion', e.target.value as Verification)}>
@@ -304,31 +303,18 @@ function FoodForm({
       <Warnings items={[...v.errors.map((t) => ({ level: 'error', text: t })), ...v.warnings.map((t) => ({ level: 'aviso', text: t }))]} />
 
       <button className="btn small" onClick={() => setAdvanced(!advanced)}>
-        {advanced ? '▲ Ocultar opciones avanzadas' : '▼ Raciones, cocción y etiquetas'}
+        {advanced ? '▲ Ocultar opciones avanzadas' : '▼ Raciones y etiquetas'}
       </button>
       {advanced && (
         <div className="col">
-          <div className="grid2">
-            <label className="field">
-              Unidad de ración
-              <select value={f.unidadBase} onChange={(e) => set('unidadBase', e.target.value as Unit)}>
-                <option value="g">Gramos</option>
-                <option value="ml">Mililitros</option>
-                <option value="unidad">Unidades (huevo, rebanada…)</option>
-              </select>
-            </label>
-            <label className="field">
-              Conversión de cocción
-              <select value={f.conversionId ?? ''} onChange={(e) => set('conversionId', e.target.value || undefined)}>
-                <option value="">Ninguna</option>
-                {data.conversions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre} ({c.metodos.map((m) => `×${m.factor}`).join(', ')})
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <label className="field">
+            Unidad de ración
+            <select value={f.unidadBase} onChange={(e) => set('unidadBase', e.target.value as Unit)}>
+              <option value="g">Gramos</option>
+              <option value="ml">Mililitros</option>
+              <option value="unidad">Unidades (huevo, rebanada…)</option>
+            </select>
+          </label>
           {(f.unidadBase === 'unidad' || f.pesoUnidad) && (
             <div className="grid2">
               <label className="field">

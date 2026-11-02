@@ -29,7 +29,7 @@ export function SubstituteSheet({
   prohibidos?: string[];
 }) {
   const { activeFoods, data, cm, fm } = useStore();
-  const view = data.settings.mostrarPesos;
+  const view = meal.vista ?? data.settings.mostrarPesos;
   const item = meal.items[index];
   const from = fm[item.foodId];
   const subs = useMemo(

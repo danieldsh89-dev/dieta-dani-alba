@@ -13,8 +13,9 @@ import { emptySync, key, touch } from '../sync/docs';
 /**
  * 2 = v1.3: días de entreno desactivados por defecto, comidas por persona, extras y semanas tipo
  * 3 = v1.11: verduras congeladas de la base con conversión (pierden agua al saltearlas)
+ * 4 = v1.12: objetivos diarios de hidratos y grasa; nuevos objetivos de Alba (1.600 kcal)
  */
-export const DATA_VERSION = 3;
+export const DATA_VERSION = 4;
 
 /** alimentos de la base que en la v1.11 pasan a tener conversión (si el usuario no los ha tocado) */
 const CONVERSION_V3: Record<string, string> = {
@@ -94,6 +95,34 @@ export function mergeWithSeed(saved: AppData): AppData {
       return { ...f, estadoNutricionalBase: 'crudo' as const, conversionId: conv };
     });
     merged = touch({ ...merged, foods }, cambiados.map((id) => key('food', id)));
+  }
+  if (v < 4) {
+    // Migración a v4: solo perfiles sin objetivo de hidratos, así no se pisa lo que ya llegó por sincronización
+    const { dani, alba } = merged.profiles;
+    const s = SEED_PROFILES;
+    const keys: string[] = [];
+    const profiles = { dani, alba };
+    if (saved.profiles?.dani?.hidratosDia === undefined) {
+      const extra = Math.max(0, Math.round((dani.entreno.kcalDia - dani.kcalDia) / 4));
+      profiles.dani = {
+        ...dani,
+        entreno: { ...dani.entreno, hidratosDia: (dani.hidratosDia ?? 0) + extra, grasaDia: dani.grasaDia },
+      };
+      keys.push(key('profile', 'dani'));
+    }
+    if (saved.profiles?.alba?.hidratosDia === undefined) {
+      profiles.alba = {
+        ...alba,
+        kcalDia: s.alba.kcalDia,
+        proteinaDia: s.alba.proteinaDia,
+        hidratosDia: s.alba.hidratosDia,
+        grasaDia: s.alba.grasaDia,
+        bloques: s.alba.bloques,
+        entreno: { ...s.alba.entreno, activo: alba.entreno.activo, dias: alba.entreno.dias },
+      };
+      keys.push(key('profile', 'alba'));
+    }
+    merged = touch({ ...merged, profiles }, keys);
   }
   return v < DATA_VERSION ? { ...merged, version: DATA_VERSION } : merged;
 }

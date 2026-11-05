@@ -360,3 +360,8 @@ Código: `src/lib/compra.ts` (lista unificada, tests en `compra.test.ts`), `src/
 - **Crudo / cocinado** (Más): “＋ Nueva conversión”, qué alimentos usa cada una, y borrar las tuyas que no use nadie.
 - **Cada comida elige cómo ver los pesos** (“Pesos de esta comida: Sin cocinar | Cocinados”): se guarda con la comida (también en favoritos y en el modo cocinar). Sin elegir, manda el ajuste general “pesos” de arriba.
 - **Verduras congeladas de la base** (pisto, wok, salteado y arroz de coliflor) con conversión aproximada ×0,85 (calíbrala en Crudo / cocinado). Las cantidades guardadas no cambian.
+
+## Novedades v1.12 — Objetivos de hidratos y grasa
+- **Objetivos diarios de proteína, hidratos y grasa** con su barra en Hoy, y medias frente al objetivo en Progreso → Kcal y macros. Hidratos y grasa son orientativos: no cuentan para dar un día por cumplido.
+- Se editan en Más → Configuración, también para los días de entreno. Un aviso indica cuántas kcal suman los tres macros.
+- **Nuevos objetivos de Alba**: 1.600 kcal, 130 g de proteína, 150 g de hidratos y 55 g de grasa. Sus bloques suman 1.540 kcal y dejan 60 libres para el café con bebida de avena.

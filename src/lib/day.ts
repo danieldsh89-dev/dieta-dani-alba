@@ -115,15 +115,24 @@ export interface DayGoals {
   entreno: boolean;
   kcalDia: number;
   proteinaDia: number;
+  /** 0 = sin objetivo */
+  hidratosDia: number;
+  /** 0 = sin objetivo */
+  grasaDia: number;
   bloques: Record<Block, BlockTarget>;
 }
 
 export function dayGoals(profile: Profile, fecha: string, day?: DayLog): DayGoals {
   const entreno = isTrainingDay(profile, fecha, day);
-  if (entreno && profile.entreno) {
-    return { entreno, kcalDia: profile.entreno.kcalDia, proteinaDia: profile.entreno.proteinaDia, bloques: profile.entreno.bloques };
-  }
-  return { entreno: false, kcalDia: profile.kcalDia, proteinaDia: profile.proteinaDia, bloques: profile.bloques };
+  const src = entreno && profile.entreno ? profile.entreno : profile;
+  return {
+    entreno,
+    kcalDia: src.kcalDia,
+    proteinaDia: src.proteinaDia,
+    hidratosDia: src.hidratosDia ?? 0,
+    grasaDia: src.grasaDia ?? 0,
+    bloques: src.bloques,
+  };
 }
 
 /**

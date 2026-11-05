@@ -4,7 +4,14 @@ import type { Block, BlockTarget, Profile, ProfileId, Settings, TrainingConfig }
  * Configuración de días de entreno. Por defecto DESACTIVADA (sin diferencias entre días).
  * Si se activa, propone +kcal sobre todo en hidratos del bloque B (comida tras entrenar).
  */
-export function defaultTraining(bloques: Record<Block, BlockTarget>, kcalDia: number, proteinaDia: number, dias: number[]): TrainingConfig {
+export function defaultTraining(
+  bloques: Record<Block, BlockTarget>,
+  kcalDia: number,
+  proteinaDia: number,
+  dias: number[],
+  hidratosDia = 0,
+  grasaDia = 0,
+): TrainingConfig {
   const extraB = Math.round(kcalDia * 0.045 / 10) * 10;
   const extraA = Math.round(kcalDia * 0.01 / 10) * 10;
   return {
@@ -12,6 +19,9 @@ export function defaultTraining(bloques: Record<Block, BlockTarget>, kcalDia: nu
     dias,
     kcalDia: kcalDia + extraA + extraB,
     proteinaDia,
+    // las kcal extra del día de entreno son hidratos
+    hidratosDia: hidratosDia ? hidratosDia + Math.round((extraA + extraB) / 4) : 0,
+    grasaDia,
     bloques: {
       A: { ...bloques.A, kcal: bloques.A.kcal + extraA },
       B: { ...bloques.B, kcal: bloques.B.kcal + extraB },
@@ -19,6 +29,13 @@ export function defaultTraining(bloques: Record<Block, BlockTarget>, kcalDia: nu
     },
   };
 }
+
+/** Bloques de Alba: 1.540 kcal; los 60 que faltan hasta 1.600 quedan libres para el café con bebida de avena. */
+const BLOQUES_ALBA: Record<Block, BlockTarget> = {
+  A: { kcal: 340, tolerancia: 40, proteina: 30 },
+  B: { kcal: 550, tolerancia: 40, proteina: 48 },
+  C: { kcal: 650, tolerancia: 50, proteina: 52 },
+};
 
 export const SEED_PROFILES: Record<ProfileId, Profile> = {
   dani: {
@@ -30,6 +47,8 @@ export const SEED_PROFILES: Record<ProfileId, Profile> = {
     pesoObjetivoKg: 89,
     kcalDia: 1900,
     proteinaDia: 160,
+    hidratosDia: 170,
+    grasaDia: 65,
     bloques: {
       A: { kcal: 420, tolerancia: 40, proteina: 35 },
       B: { kcal: 670, tolerancia: 50, proteina: 55 },
@@ -41,6 +60,8 @@ export const SEED_PROFILES: Record<ProfileId, Profile> = {
       1900,
       160,
       [0, 2, 4],
+      170,
+      65,
     ),
     restricciones: { permitePescado: false, permiteLecheVaca: true, maxLegumbresPorComida: null },
     saborPreferidoA: 'salado',
@@ -54,20 +75,13 @@ export const SEED_PROFILES: Record<ProfileId, Profile> = {
     alturaCm: 157,
     pesoActualKg: 64,
     pesoObjetivoKg: 60,
-    kcalDia: 1400,
-    proteinaDia: 100,
-    bloques: {
-      A: { kcal: 300, tolerancia: 40, proteina: 22 },
-      B: { kcal: 480, tolerancia: 40, proteina: 35 },
-      C: { kcal: 560, tolerancia: 50, proteina: 38 },
-    },
+    kcalDia: 1600,
+    proteinaDia: 130,
+    hidratosDia: 150,
+    grasaDia: 55,
+    bloques: BLOQUES_ALBA,
     escalaRaciones: 0.72,
-    entreno: defaultTraining(
-      { A: { kcal: 300, tolerancia: 40, proteina: 22 }, B: { kcal: 480, tolerancia: 40, proteina: 35 }, C: { kcal: 560, tolerancia: 50, proteina: 38 } },
-      1400,
-      100,
-      [0, 2, 4],
-    ),
+    entreno: defaultTraining(BLOQUES_ALBA, 1600, 130, [0, 2, 4], 150, 55),
     restricciones: { permitePescado: true, permiteLecheVaca: false, maxLegumbresPorComida: 100 },
     saborPreferidoA: 'ambos',
     notas:

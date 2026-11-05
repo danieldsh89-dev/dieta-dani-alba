@@ -96,6 +96,7 @@ function ProfileForm({ profile, onToast }: { profile: Profile; onToast: Toaster 
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP((x) => ({ ...x, [k]: v }));
   const sumBlocks = BLOCKS.reduce((s, b) => s + p.bloques[b].kcal, 0);
   const sumProt = BLOCKS.reduce((s, b) => s + p.bloques[b].proteina, 0);
+  const kcalMacros = p.proteinaDia * 4 + (p.hidratosDia ?? 0) * 4 + (p.grasaDia ?? 0) * 9;
 
   return (
     <div className="card">
@@ -145,6 +146,17 @@ function ProfileForm({ profile, onToast }: { profile: Profile; onToast: Toaster 
           Proteína g/día
           <NumberInput value={p.proteinaDia} onChange={(v) => set('proteinaDia', v ?? 0)} />
         </label>
+        <label className="field">
+          Hidratos g/día
+          <NumberInput value={p.hidratosDia ?? 0} onChange={(v) => set('hidratosDia', v ?? 0)} />
+        </label>
+        <label className="field">
+          Grasa g/día
+          <NumberInput value={p.grasaDia ?? 0} onChange={(v) => set('grasaDia', v ?? 0)} />
+        </label>
+      </div>
+      <div className="tiny muted">
+        Proteína, hidratos y grasa suman {kcalMacros} kcal (objetivo {p.kcalDia}).
       </div>
       <hr />
       <b className="small">Objetivos por bloque {p.entreno?.activo ? '(días de descanso)' : ''}</b>
@@ -241,6 +253,14 @@ function TrainingSection({ p, setP }: { p: Profile; setP: (fn: (x: Profile) => P
             <label className="field">
               Proteína g / día de entreno
               <NumberInput value={e.proteinaDia} onChange={(v) => upd({ proteinaDia: v ?? 0 })} />
+            </label>
+            <label className="field">
+              Hidratos g / día de entreno
+              <NumberInput value={e.hidratosDia ?? 0} onChange={(v) => upd({ hidratosDia: v ?? 0 })} />
+            </label>
+            <label className="field">
+              Grasa g / día de entreno
+              <NumberInput value={e.grasaDia ?? 0} onChange={(v) => upd({ grasaDia: v ?? 0 })} />
             </label>
           </div>
           <div className="grid3 tiny muted" style={{ gridTemplateColumns: '28px 1fr 1fr 1fr' }}>

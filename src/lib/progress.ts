@@ -67,8 +67,12 @@ export interface DayStat {
   incompleto: boolean;
   kcal: number;
   proteina: number;
+  hidratos: number;
+  grasa: number;
   kcalObjetivo: number;
   proteinaObjetivo: number;
+  hidratosObjetivo: number;
+  grasaObjetivo: number;
   entreno: boolean;
   /** kcal dentro de ±10 % del objetivo y proteína ≥ 90 % */
   cumplido: boolean;
@@ -95,8 +99,12 @@ export function dayStats(
       incompleto,
       kcal: t.kcal,
       proteina: t.proteina,
+      hidratos: t.carbohidratos,
+      grasa: t.grasas,
       kcalObjetivo: g.kcalDia,
       proteinaObjetivo: g.proteinaDia,
+      hidratosObjetivo: g.hidratosDia,
+      grasaObjetivo: g.grasaDia,
       entreno: g.entreno,
       cumplido,
     };
@@ -110,8 +118,12 @@ export interface PeriodSummary {
   cumplimiento: number | null;
   kcalMedia: number | null;
   proteinaMedia: number | null;
+  hidratosMedia: number | null;
+  grasaMedia: number | null;
   kcalObjetivoMedio: number;
   proteinaObjetivoMedia: number;
+  hidratosObjetivoMedia: number;
+  grasaObjetivoMedia: number;
 }
 
 export function summarize(stats: DayStat[]): PeriodSummary {
@@ -124,8 +136,12 @@ export function summarize(stats: DayStat[]): PeriodSummary {
     cumplimiento: reg.length ? (done / reg.length) * 100 : null,
     kcalMedia: avg((s) => s.kcal, reg),
     proteinaMedia: avg((s) => s.proteina, reg),
+    hidratosMedia: avg((s) => s.hidratos, reg),
+    grasaMedia: avg((s) => s.grasa, reg),
     kcalObjetivoMedio: avg((s) => s.kcalObjetivo, stats) ?? 0,
     proteinaObjetivoMedia: avg((s) => s.proteinaObjetivo, stats) ?? 0,
+    hidratosObjetivoMedia: avg((s) => s.hidratosObjetivo, stats) ?? 0,
+    grasaObjetivoMedia: avg((s) => s.grasaObjetivo, stats) ?? 0,
   };
 }
 

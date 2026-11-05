@@ -22,7 +22,7 @@ export function ProgressScreen({ onToast }: { onToast: Toaster }) {
         value={view}
         options={[
           { value: 'peso', label: '⚖️ Peso' },
-          { value: 'semana', label: '📊 Kcal y proteína' },
+          { value: 'semana', label: '📊 Kcal y macros' },
           { value: 'plan', label: '✅ Plan' },
         ]}
         onChange={setView}
@@ -163,10 +163,20 @@ function WeekView({ pid }: { pid: ProfileId }) {
           <b>{r(sum.proteinaMedia)} g</b>
           <span className="tiny muted">obj. {r(sum.proteinaObjetivoMedia)} g</span>
         </div>
+        <div className="card tight">
+          <span className="tiny muted">Hidratos media</span>
+          <b>{r(sum.hidratosMedia)} g</b>
+          {sum.hidratosObjetivoMedia > 0 && <span className="tiny muted">obj. {r(sum.hidratosObjetivoMedia)} g</span>}
+        </div>
+        <div className="card tight">
+          <span className="tiny muted">Grasa media</span>
+          <b>{r(sum.grasaMedia)} g</b>
+          {sum.grasaObjetivoMedia > 0 && <span className="tiny muted">obj. {r(sum.grasaObjetivoMedia)} g</span>}
+        </div>
       </div>
       <div className="tiny muted">
-        Un día cuenta como cumplido si las kcal quedan a ±10 % del objetivo del día (entreno o descanso) y la proteína llega al 90 %. Las medias solo
-        cuentan días registrados completos.
+        Un día cuenta como cumplido si las kcal quedan a ±10 % del objetivo del día (entreno o descanso) y la proteína llega al 90 %; hidratos y grasa
+        son orientativos y no cuentan para el cumplimiento. Las medias solo cuentan días registrados completos.
       </div>
       <div className="card">
         <h3>Kcal por día · {p.nombre}</h3>

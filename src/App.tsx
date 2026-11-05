@@ -43,7 +43,7 @@ const TABS: { id: Tab; label: string; ico: IconName }[] = [
 type MoreId = Exclude<MoreView, 'menu'>;
 const MORE_ITEMS: { id: MoreId; ico: IconName; title: string; sub: string }[] = [
   { id: 'alimentos', ico: 'leaf', title: 'Alimentos', sub: 'Valores, raciones y escáner de códigos' },
-  { id: 'progreso', ico: 'trend', title: 'Progreso', sub: 'Peso, tendencia y gráficas de kcal y proteína' },
+  { id: 'progreso', ico: 'trend', title: 'Progreso', sub: 'Peso, tendencia, kcal y macros' },
   { id: 'sync', ico: 'cloud', title: 'Sincronizar', sub: 'Compartir datos entre los móviles de Dani y Alba' },
   { id: 'config', ico: 'users', title: 'Configuración', sub: 'Perfiles, objetivos A/B/C, misma receta' },
   { id: 'conversiones', ico: 'scale', title: 'Crudo / cocinado', sub: 'Factores de cocción y calibrar' },

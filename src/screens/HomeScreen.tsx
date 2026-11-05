@@ -254,17 +254,9 @@ export function HomeScreen({
                 </div>
                 <KcalRing pid={pid} value={t.kcal} max={g.kcalDia} />
                 <div className="person-stats">
-                  <div className="stat-line">
-                    <span>Proteína</span>
-                    <span>
-                      <b>{round(t.proteina)}</b> / {g.proteinaDia} g
-                    </span>
-                  </div>
-                  <Progress value={t.proteina} max={g.proteinaDia} />
-                  <div className="stat-line">
-                    <span>HC {round(t.carbohidratos)} g</span>
-                    <span>G {round(t.grasas)} g</span>
-                  </div>
+                  <MacroGoal label="Proteína" value={t.proteina} max={g.proteinaDia} />
+                  <MacroGoal label="Hidratos" value={t.carbohidratos} max={g.hidratosDia} />
+                  <MacroGoal label="Grasa" value={t.grasas} max={g.grasaDia} />
                   {data.settings.mostrarFibraSal && (
                     <div className="stat-line">
                       <span>Fibra {round(t.fibra, 1)} g</span>
@@ -702,5 +694,21 @@ export function FreeMealSheet({
         Guardar comida libre
       </button>
     </Sheet>
+  );
+}
+
+/** Consumido del día frente a su objetivo; sin objetivo (0) solo muestra lo consumido. */
+function MacroGoal({ label, value, max }: { label: string; value: number; max: number }) {
+  return (
+    <>
+      <div className="stat-line">
+        <span>{label}</span>
+        <span>
+          <b>{round(value)}</b>
+          {max > 0 ? ` / ${max}` : ''} g
+        </span>
+      </div>
+      {max > 0 && <Progress value={value} max={max} />}
+    </>
   );
 }

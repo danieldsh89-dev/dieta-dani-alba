@@ -130,6 +130,10 @@ export interface Profile {
   pesoObjetivoKg: number;
   kcalDia: number;
   proteinaDia: number;
+  /** objetivo diario de hidratos en g (sin definir o 0 = sin objetivo) */
+  hidratosDia?: number;
+  /** objetivo diario de grasa en g (sin definir o 0 = sin objetivo) */
+  grasaDia?: number;
   bloques: Record<Block, BlockTarget>;
   /** escala relativa de raciones respecto a la ración "habitual" de la base (Dani = 1) */
   escalaRaciones: number;
@@ -152,6 +156,8 @@ export interface TrainingConfig {
   dias: number[];
   kcalDia: number;
   proteinaDia: number;
+  hidratosDia?: number;
+  grasaDia?: number;
   bloques: Record<Block, BlockTarget>;
 }
 

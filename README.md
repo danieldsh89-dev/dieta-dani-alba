@@ -365,3 +365,6 @@ Código: `src/lib/compra.ts` (lista unificada, tests en `compra.test.ts`), `src/
 - **Objetivos diarios de proteína, hidratos y grasa** con su barra en Hoy, y medias frente al objetivo en Progreso → Kcal y macros. Hidratos y grasa son orientativos: no cuentan para dar un día por cumplido.
 - Se editan en Más → Configuración, también para los días de entreno. Un aviso indica cuántas kcal suman los tres macros.
 - **Nuevos objetivos de Alba**: 1.600 kcal, 130 g de proteína, 150 g de hidratos y 55 g de grasa. Sus bloques suman 1.540 kcal y dejan 60 libres para el café con bebida de avena.
+
+### v1.12.1
+- **Cantidades de Alba en los favoritos**: 28 comidas de la dieta modular suben sus raciones para quedar en el rango de sus nuevos objetivos; las 41 quedan en rango. Las de Dani no cambian. No se tocan los favoritos en los que esos ingredientes se hayan cambiado a mano, ni las comidas ya puestas en el plan o el historial.

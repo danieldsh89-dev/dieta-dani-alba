@@ -3,7 +3,8 @@ import type { SeedFavorite } from './seedMeals';
 /**
  * Dieta modular A/B/C diseñada por el usuario (PDF): 13 opciones A, 14 B y 14 C.
  * Cantidades FIJAS en estado de consumo (cocinado / listo para comer; huevos, rebanadas,
- * obleas y tortillas en unidades). No se optimizan: se guardan tal cual como favoritos.
+ * obleas y tortillas en unidades). No se optimizan: se guardan tal cual como favoritos,
+ * salvo las de Alba que corrige albaCantidades.ts para sus objetivos de 1.600 kcal.
  * Las kcal/macros se calculan con la base de alimentos.
  *
  * Interpretaciones (el PDF no las detalla):

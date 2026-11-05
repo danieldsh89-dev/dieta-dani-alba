@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DIETA_MODULAR } from '../../data/dietaModular';
+import { ALBA_1600 } from '../../data/albaCantidades';
 import { createSeedData, mergeWithSeed } from '../../store/seed';
 import { toFoodMap, mealNutrients, rangeStatus } from '../nutrition';
 import { baseToServing, toConversionMap } from '../conversions';
@@ -22,7 +23,7 @@ describe('dieta modular (PDF) como favoritos', () => {
     for (const f of DIETA_MODULAR) for (const i of f.items) expect(fm[i.foodId], `${f.nombre}: ${i.foodId}`).toBeTruthy();
   });
 
-  it('las cantidades mostradas en cocinado/listo son EXACTAMENTE las del documento', () => {
+  it('las cantidades mostradas en cocinado/listo son las del documento (o las nuevas de Alba)', () => {
     for (const sf of DIETA_MODULAR) {
       const fav = seed.favorites.find((x) => x.id === sf.id)!;
       expect(fav, sf.id).toBeTruthy();
@@ -30,7 +31,8 @@ describe('dieta modular (PDF) como favoritos', () => {
         const item = fav.items[i];
         for (const p of PROFILE_IDS) {
           const shown = baseToServing(fm[it.foodId], item.cantidades[p], cm, item.metodoId);
-          expect(shown, `${sf.nombre} ${it.foodId} ${p}`).toBeCloseTo(it[p], 6);
+          const esperado = p === 'alba' ? (ALBA_1600[sf.id]?.[it.foodId] ?? it.alba) : it[p];
+          expect(shown, `${sf.nombre} ${it.foodId} ${p}`).toBeCloseTo(esperado, 6);
         }
       });
     }

@@ -86,15 +86,15 @@ describe('cesta desde el plan', () => {
   it('vinculados con precio, sin vincular aparte, en casa excluido', () => {
     const lines = buildBasket(items, { pollo_pechuga: link('pollo_pechuga', P.pollo), arroz: link('arroz', P.arroz) }, { pantry: ['arroz'] });
     const pollo = lines.find((l) => l.food.id === 'pollo_pechuga')!;
-    // 3 días × (150+100 g cocinado) / 0,75 = 1.000 g crudo → 2 bandejas de 530 g
-    expect(pollo.need).toBe(1000);
-    expect(pollo.qty).toBe(2);
-    expect(pollo.precio).toBeCloseTo(9.54, 2);
-    expect(pollo.sobrante).toBe(60);
+    // 3 días × (150+120 g cocinado) / 0,75 = 1.080 g crudo → 3 bandejas de 530 g
+    expect(pollo.need).toBe(1080);
+    expect(pollo.qty).toBe(3);
+    expect(pollo.precio).toBeCloseTo(14.31, 2);
+    expect(pollo.sobrante).toBe(510);
     expect(lines.find((l) => l.food.id === 'arroz')!.status).toBe('en_casa');
     expect(lines.find((l) => l.food.id === 'ratatouille')!.status).toBe('sin_vincular');
-    expect(basketTotal(lines)).toBeCloseTo(9.54, 2); // solo lo que se compra
-    expect(cliText(lines)).toBe('2787 2 # Filetes pechuga de pollo');
+    expect(basketTotal(lines)).toBeCloseTo(14.31, 2); // solo lo que se compra
+    expect(cliText(lines)).toBe('2787 3 # Filetes pechuga de pollo');
   });
 
   it('ajuste manual y quitar', () => {

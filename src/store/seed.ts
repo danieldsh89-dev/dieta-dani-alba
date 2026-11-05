@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, SEED_PROFILES, defaultTraining } from '../data/profil
 import type { Profile } from '../types';
 import { SEED_FAVORITES } from '../data/seedMeals';
 import { DIETA_MODULAR } from '../data/dietaModular';
+import { ALBA_1600 } from '../data/albaCantidades';
 import { servingToBase, toConversionMap } from '../lib/conversions';
 import { mealNutrients, toFoodMap } from '../lib/nutrition';
 import { emptySync, key, touch } from '../sync/docs';
@@ -14,8 +15,9 @@ import { emptySync, key, touch } from '../sync/docs';
  * 2 = v1.3: días de entreno desactivados por defecto, comidas por persona, extras y semanas tipo
  * 3 = v1.11: verduras congeladas de la base con conversión (pierden agua al saltearlas)
  * 4 = v1.12: objetivos diarios de hidratos y grasa; nuevos objetivos de Alba (1.600 kcal)
+ * 5 = v1.12.1: cantidades de Alba en los favoritos de la dieta modular, para esos objetivos
  */
-export const DATA_VERSION = 4;
+export const DATA_VERSION = 5;
 
 /** alimentos de la base que en la v1.11 pasan a tener conversión (si el usuario no los ha tocado) */
 const CONVERSION_V3: Record<string, string> = {
@@ -40,7 +42,7 @@ export function buildSeedFavorites(): Favorite[] {
         metodoId: it.metodoId,
         cantidades: {
           dani: servingToBase(fm[it.foodId], it.dani, cm, it.metodoId),
-          alba: servingToBase(fm[it.foodId], it.alba, cm, it.metodoId),
+          alba: servingToBase(fm[it.foodId], ALBA_1600[sf.id]?.[it.foodId] ?? it.alba, cm, it.metodoId),
         },
       })),
     };
@@ -124,7 +126,39 @@ export function mergeWithSeed(saved: AppData): AppData {
     }
     merged = touch({ ...merged, profiles }, keys);
   }
+  if (v < 5) merged = migrarCantidadesAlba(merged);
   return v < DATA_VERSION ? { ...merged, version: DATA_VERSION } : merged;
+}
+
+/** Migración a v5: sube las cantidades de Alba en los favoritos semilla, salvo en los que ella o Dani hayan cambiado esos ingredientes. */
+function migrarCantidadesAlba(d: AppData): AppData {
+  const seedFoods = toFoodMap(SEED_FOODS);
+  const seedConvs = toConversionMap(SEED_CONVERSIONS);
+  const seedFavs = new Map(buildSeedFavorites().map((f) => [f.id, f]));
+  const foods = toFoodMap(d.foods);
+  const cambiados: string[] = [];
+  const favorites = d.favorites.map((fav) => {
+    const nuevas = ALBA_1600[fav.id];
+    const original = DIETA_MODULAR.find((x) => x.id === fav.id);
+    const semilla = seedFavs.get(fav.id);
+    if (!nuevas || !original || !semilla) return fav;
+    const intacto = Object.keys(nuevas).every((foodId) => {
+      const antes = original.items.find((i) => i.foodId === foodId);
+      const ahora = fav.items.find((i) => i.foodId === foodId);
+      if (!antes || !ahora) return false;
+      return Math.abs(ahora.cantidades.alba - servingToBase(seedFoods[foodId], antes.alba, seedConvs, antes.metodoId)) < 0.5;
+    });
+    if (!intacto) return fav;
+    const items = fav.items.map((i) => {
+      if (!(i.foodId in nuevas)) return i;
+      const alba = semilla.items.find((x) => x.foodId === i.foodId)!.cantidades.alba;
+      return { ...i, cantidades: { ...i.cantidades, alba } };
+    });
+    cambiados.push(fav.id);
+    const meal = { ...fav, items };
+    return { ...meal, totales: { ...fav.totales, alba: mealNutrients(meal, 'alba', foods) } };
+  });
+  return touch({ ...d, favorites }, cambiados.map((id) => key('fav', id)));
 }
 
 function mergeRaw(saved: AppData): AppData {
